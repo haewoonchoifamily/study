@@ -1,0 +1,14 @@
+# 모델 가중치 — 처음 실행할 때 자동으로 내려받는다. 저장소에 넣지 않는다.
+*.pt
+*.onnx
+weights/
+
+# phone_server.py 가 만드는 자체 서명 인증서 (개인키가 들어 있다)
+certs/
+
+__pycache__/
+*.pyc
+
+# 실행 중 생기는 결과물
+snapshot_*.jpg
+*.bak
