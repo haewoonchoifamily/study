@@ -1,0 +1,4 @@
+# advisor-meeting 은 자체 git 저장소다 (github.com/haewoonchoifamily/meeting_schedule).
+# 폴더는 여기 그대로 두되, 이 저장소에서는 추적하지 않는다. 같은 파일을 두
+# 저장소가 함께 추적하면 어느 쪽에 커밋했는지 헷갈린다.
+advisor-meeting/
