@@ -72,6 +72,7 @@
         <div><h2>삭제·중점 체크</h2><div class="sub" id="fname"></div></div>
         <div class="actions">
           <button class="btn" id="clear">체크 모두 해제</button>
+          <button class="btn" id="newFile">새 파일 올리기</button>
         </div>
       </div>
       <div class="rows" id="rows"></div>
@@ -87,6 +88,7 @@
           <button id="tabMark" class="on">표시본 (취소선)</button>
           <button id="tabFinal">최종본</button>
           <button id="edit" style="margin-left:8px">✎ 수정</button>
+          <button id="newFile2">새 파일 올리기</button>
         </div>
       </div>
       <div id="preview"></div>
@@ -319,12 +321,16 @@ async function extractFile(file){
 /* ===== 앱 ===== */
 const $=id=>document.getElementById(id);
 let items=[];   // {text, del, star}
-let mode='mark';
+let mode='mark', stage='edit', fileName='';
+const KEY='hwp-review-state-v1';
+function save(){try{localStorage.setItem(KEY,JSON.stringify({items,stage,fileName,savedAt:Date.now()}));}catch(e){}}
+function clearSaved(){try{localStorage.removeItem(KEY);}catch(e){}}
 
 function setMsg(t,err){const m=$('msg');m.textContent=t||'';m.className=err?'err':'';}
 function loadLines(lines,name){
   items=lines.map(s=>s.replace(/\s+$/,'')).filter(s=>s.trim()!=='').map(text=>({text,del:false,star:false,fixed:!/^\d+\.\s.*[:：]/.test(text)}));
   if(!items.length){setMsg('추출된 텍스트가 없습니다.',true);return;}
+  fileName=name||''; stage='edit'; $('drop').style.display='none';
   $('fname').textContent=name?`${name} · ${items.length}줄`:`${items.length}줄`;
   $('work').style.display='block'; $('resultPanel').style.display='none'; document.querySelector('#work > .panel').style.display='';
   setMsg('');
@@ -336,7 +342,7 @@ function buildRows(){
     const r=document.createElement('div'); r.className='row'; r.id='r'+i;
     const mk=(cls,label,key)=>{
       const l=document.createElement('label'); l.className=cls;
-      const c=document.createElement('input'); c.type='checkbox'; c.id=key+i;
+      const c=document.createElement('input'); c.type='checkbox'; c.id=key+i; c.checked=!!it[key];
       c.onchange=()=>{it[key]=c.checked; if(key==='del'&&c.checked){it.star=false;$('star'+i).checked=false;} if(key==='star'&&c.checked){it.del=false;$('del'+i).checked=false;} render();};
       l.append(c,label); return l;
     };
@@ -357,6 +363,7 @@ function render(){
     d.append(document.createTextNode(it.text)); pv.append(d);
   });
   const nd=items.filter(i=>i.del).length, ns=items.filter(i=>i.star).length;
+  save();
   $('statR').textContent=`삭제 ${items.filter(i=>i.del).length} · 중점 ${items.filter(i=>i.star).length}`;
   $('stat').textContent=`체크 대상 ${items.filter(i=>!i.fixed).length}줄 · 삭제 ${nd} · 중점 ${ns}`;
   $('tabMark').classList.toggle('on',mode==='mark'); $('tabFinal').classList.toggle('on',mode==='final');
@@ -401,9 +408,10 @@ drop.addEventListener('drop',e=>handleFile(e.dataTransfer.files[0]));
 $('tabMark').onclick=()=>{mode='mark';render();};
 $('tabFinal').onclick=()=>{mode='final';render();};
 function showStage(done){
+  stage=done?'done':'edit';
   $('resultPanel').style.display=done?'':'none';
   document.querySelector('#work > .panel').style.display=done?'none':'';
-  if(done){mode='mark';render();}
+  if(done){mode='mark';} render();
   window.scrollTo(0,0);
 }
 $('confirm').onclick=()=>showStage(true);
@@ -411,6 +419,31 @@ $('edit').onclick=()=>showStage(false);
 $('copyFinal').onclick=()=>copy(true);
 $('copyMark').onclick=()=>copy(false);
 $('clear').onclick=()=>{items.forEach((it,i)=>{it.del=it.star=false;if($('del'+i)){$('del'+i).checked=false;$('star'+i).checked=false;}});render();};
+let armed=null;
+function resetAll(btn){
+  if(armed!==btn){
+    armed=btn; const old=btn.textContent; btn.textContent='저장된 내용이 지워집니다. 한 번 더 누르세요';
+    setTimeout(()=>{if(armed===btn){armed=null;btn.textContent=old;}},4000); return;
+  }
+  armed=null; items=[]; stage='edit'; fileName=''; clearSaved();
+  $('work').style.display='none'; $('drop').style.display=''; $('rows').textContent=''; $('preview').textContent='';
+  $('newFile').textContent='새 파일 올리기'; $('newFile2').textContent='새 파일 올리기';
+  setMsg(''); window.scrollTo(0,0);
+}
+$('newFile').onclick=()=>resetAll($('newFile'));
+$('newFile2').onclick=()=>resetAll($('newFile2'));
+(function restore(){
+  try{
+    const d=JSON.parse(localStorage.getItem(KEY)||'null');
+    if(!d||!Array.isArray(d.items)||!d.items.length) return;
+    items=d.items; fileName=d.fileName||'';
+    const when=d.savedAt?new Date(d.savedAt).toLocaleString('ko-KR'):'';
+    $('fname').textContent=`${fileName} · ${items.length}줄${when?' · 마지막 저장 '+when:''}`;
+    $('drop').style.display='none'; $('work').style.display='block';
+    buildRows(); showStage(d.stage==='done');
+    setMsg('');
+  }catch(e){}
+})();
 $('pasteGo').onclick=()=>loadLines($('paste').value.split(/\r?\n/),'붙여넣은 텍스트');
 </script>
 </body>
