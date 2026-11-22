@@ -31,7 +31,7 @@
   .row input{width:17px;height:17px;margin:0;cursor:pointer}
   .row .t{white-space:pre-wrap;word-break:break-word;font-size:14.5px}
   .row.fixed{background:#f1f4f9}.row.fixed .t{font-weight:700;color:#37455c}
-  .row.isdel .t{text-decoration:line-through;color:#8a929e}
+  .row.isdel .t{text-decoration:line-through;text-decoration-color:#e02020;text-decoration-thickness:2px;color:#8a929e}
   .row.isstar .t{font-weight:700}
   .row.isstar{background:#fff9ec}
   .tabs{display:flex;gap:4px}
@@ -41,7 +41,7 @@
   .btn:hover{filter:brightness(.96)}
   #preview{padding:14px 18px;max-height:68vh;overflow:auto;font-size:15px}
   #preview .ln{padding:2px 0;white-space:pre-wrap;word-break:break-word}
-  #preview .ln.del{text-decoration:line-through;color:#8a929e}
+  #preview .ln.del{text-decoration:line-through;text-decoration-color:#e02020;text-decoration-thickness:2px;color:#8a929e}
   #preview .ln .star{color:var(--star);font-weight:700}
   #preview .ln.star{font-weight:700}
   #preview .ln.head{font-weight:700;color:#37455c;margin-top:6px}
@@ -416,7 +416,7 @@ function textOut(final){
 }
 function htmlOut(final){
   return items.filter(i=>!final||!i.del).map(i=>{
-    let h=esc(i.text); if(i.del) h='<s>'+h+'</s>'; if(i.star) h='<b>◆ '+h+'</b>';
+    let h=esc(i.text); if(i.del) h='<s style="color:#e02020;text-decoration-color:#e02020">'+h+'</s>'; if(i.star) h='<b>◆ '+h+'</b>';
     return '<p style="margin:0">'+h+'</p>';
   }).join('');
 }
