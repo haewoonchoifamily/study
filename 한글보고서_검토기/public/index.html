@@ -350,8 +350,9 @@ function listCounts(recs){
 }
 function editPrefix(body,newPrefix){
   const dv=new DataView(body.buffer,body.byteOffset,body.byteLength);
-  let k=0; while(k*2+1<body.length){const c=dv.getUint16(k*2,true); if(c>=0x30&&c<=0x39) k++; else break;}
-  if(k===0) return null;
+  const MK=[0x25C6,0x25C8,0x25C7,0x2605,0x2606,0x20,0xA0]; let k=0; while(k*2+1<body.length&&MK.includes(dv.getUint16(k*2,true))) k++;
+  let nd=0; while((k+nd)*2+1<body.length){const c=dv.getUint16((k+nd)*2,true); if(c>=0x30&&c<=0x39) nd++; else break;}
+  if(nd===0) return null; k+=nd;
   const m=newPrefix.length, out=new Uint8Array(body.length+(m-k)*2), od=new DataView(out.buffer);
   for(let i=0;i<m;i++) od.setUint16(i*2,newPrefix.charCodeAt(i),true);
   out.set(body.subarray(k*2),m*2);
@@ -403,9 +404,9 @@ function buildPlan(items,withStar){
     if(it.del) return;
     num++;
     if(it.ph==null||it.ln!==0) return;
-    const m=/^(\d+)/.exec(it.text); if(!m) return;
-    const prefix=(withStar&&it.star?'◆ ':'')+num;
-    if(prefix!==m[1]) edits.set(it.sec+':'+it.ph,prefix);
+    const m=/^([◆◈◇★☆\s]*)(\d+)/.exec(it.text); if(!m) return;
+    const prefix=(m[1]||(withStar&&it.star?'◆ ':''))+num;
+    if(prefix!==m[0]) edits.set(it.sec+':'+it.ph,prefix);
   });
   return {del,edits,partial};
 }
@@ -482,7 +483,7 @@ async function exportHWP(orig,items,opts){
     replaced[secs[si]]=outData; removed+=t.removed; unsafe+=t.unsafe;
   }
   if(files['PrvText']){
-    const txt=items.filter(i=>!i.del).map(i=>(opts&&opts.star&&i.star?'◆ ':'')+i.text).join('\r\n').slice(0,1024);
+    const txt=items.filter(i=>!i.del).map(i=>(opts&&opts.star?mk(i):'')+i.text).join('\r\n').slice(0,1024);
     replaced['PrvText']=utf16le(txt);
   }
   const bytes=writeCFB(tree,rootClsid,p=>replaced[p]||files[p]());
@@ -612,7 +613,8 @@ function finalNums(){
   let num=0;
   return items.map(it=>{ if(it.fixed){ if(!(it.ln>0)) num=0; return null; } if(it.del) return null; num++; return num; });
 }
-function shownText(it,num,final){ return (final&&num!=null)?it.text.replace(/^\d+/,String(num)):it.text; }
+function mk(it){return it.star&&!/^[◆◈◇★☆]/.test(it.text)?'◆ ':'';}
+function shownText(it,num,final){ return (final&&num!=null)?it.text.replace(/^([◆◈◇★☆\s]*)\d+/,(_,a)=>a+num):it.text; }
 function render(){
   items.forEach((it,i)=>{const r=$('r'+i); if(!r)return; r.classList.toggle('isdel',it.del); r.classList.toggle('isstar',it.star);});
   const pv=$('preview'); pv.textContent='';
@@ -621,7 +623,7 @@ function render(){
   if(!list.length){const d=document.createElement('div');d.className='empty';d.textContent='표시할 내용이 없습니다.';pv.append(d);}
   list.forEach(({it,n})=>{
     const d=document.createElement('div'); d.className='ln'+(it.del?' del':'')+(it.star?' star':'')+(it.fixed?' head':'');
-    if(it.star){const s=document.createElement('span');s.className='star';s.textContent='◆ ';d.append(s);}
+    if(mk(it)){const s=document.createElement('span');s.className='star';s.textContent='◆ ';d.append(s);}
     d.append(document.createTextNode(shownText(it,n,fin))); pv.append(d);
   });
   const nd=items.filter(i=>i.del).length, ns=items.filter(i=>i.star).length;
@@ -635,12 +637,12 @@ function render(){
 const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 function textOut(final){
   const nums=finalNums();
-  return items.map((i,k)=>[i,nums[k]]).filter(([i])=>!final||!i.del).map(([i,n])=>(i.star?'◆ ':'')+shownText(i,n,final)).join('\n');
+  return items.map((i,k)=>[i,nums[k]]).filter(([i])=>!final||!i.del).map(([i,n])=>mk(i)+shownText(i,n,final)).join('\n');
 }
 function htmlOut(final){
   const nums=finalNums();
   return items.map((i,k)=>[i,nums[k]]).filter(([i])=>!final||!i.del).map(([i,n])=>{
-    let h=esc(shownText(i,n,final)); if(i.del) h='<s style="color:#e02020;text-decoration-color:#e02020">'+h+'</s>'; if(i.star) h='<b>◆ '+h+'</b>';
+    let h=esc(shownText(i,n,final)); if(i.del) h='<s style="color:#e02020;text-decoration-color:#e02020">'+h+'</s>'; if(i.star) h='<b>'+mk(i)+h+'</b>';
     return '<p style="margin:0">'+h+'</p>';
   }).join('');
 }
