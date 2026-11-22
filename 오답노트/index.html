@@ -1,0 +1,1040 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 오답노트</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<style>
+:root{
+  --bg:#f5f6fa;--panel:#fff;--panel2:#fafbfd;--text:#1c2230;--muted:#687083;--border:#e2e5ed;
+  --accent:#4f6bed;--accent-weak:#eef1ff;--accent-text:#fff;
+  --tip:#fff8e0;--tip-b:#f0b429;--err:#fff0f1;--err-b:#e5484d;--ok:#eaf8f0;--ok-b:#2f9e64;
+  --shadow:0 1px 3px rgba(20,30,60,.08),0 4px 16px rgba(20,30,60,.05);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12151c;--panel:#1b1f29;--panel2:#20252f;--text:#e7e9ef;--muted:#9aa1b2;--border:#2e3442;
+  --accent:#7b91ff;--accent-weak:#252c47;--accent-text:#0e1220;
+  --tip:#2d2717;--tip-b:#d9a227;--err:#33191c;--err-b:#ef6b70;--ok:#16291f;--ok-b:#4cc38a;
+  --shadow:0 1px 3px rgba(0,0,0,.4);
+}}
+:root[data-theme="dark"]{
+  --bg:#12151c;--panel:#1b1f29;--panel2:#20252f;--text:#e7e9ef;--muted:#9aa1b2;--border:#2e3442;
+  --accent:#7b91ff;--accent-weak:#252c47;--accent-text:#0e1220;
+  --tip:#2d2717;--tip-b:#d9a227;--err:#33191c;--err-b:#ef6b70;--ok:#16291f;--ok-b:#4cc38a;
+  --shadow:0 1px 3px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:15px/1.6 "Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.btn{border:1px solid var(--border);background:var(--panel);padding:7px 13px;border-radius:9px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-text);font-weight:600}
+.btn.danger:hover{border-color:var(--err-b);color:var(--err-b)}
+.btn.sm{padding:4px 9px;font-size:13px}
+input[type=text],input[type=password],input[type=search],select,textarea{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:8px 10px;width:100%}
+textarea{resize:vertical;min-height:60px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent-weak);border-color:var(--accent)}
+label.f{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+
+header{height:58px;display:flex;align-items:center;gap:12px;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5}
+header h1{font-size:18px;margin:0;white-space:nowrap}
+header .search{flex:1;max-width:360px;margin-left:auto}
+.layout{display:flex;min-height:calc(100% - 58px)}
+aside{width:230px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);padding:14px 10px;display:flex;flex-direction:column;gap:8px}
+aside h2{font-size:12px;color:var(--muted);margin:6px 8px;font-weight:600;letter-spacing:.04em}
+#folders{list-style:none;margin:0;padding:0}
+#folders li{display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:9px;cursor:pointer}
+#folders li:hover{background:var(--panel2)}
+#folders li.active{background:var(--accent-weak);color:var(--accent);font-weight:600}
+#folders li span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#folders li b{font-size:12px;color:var(--muted);font-weight:500}
+#folders li .mini{border:0;background:none;padding:0 3px;opacity:0;font-size:13px}
+#folders li:hover .mini,#folders li.active .mini{opacity:.75}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:6px}
+main{flex:1;min-width:0;padding:20px 22px 40px}
+.banner{background:var(--tip);border:1px solid var(--tip-b);padding:10px 14px;border-radius:10px;margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.toolbar h2{margin:0;font-size:20px;margin-right:auto}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.seg button{border:0;background:var(--panel);padding:6px 12px}
+.seg button.on{background:var(--accent-weak);color:var(--accent);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:var(--shadow);display:flex;flex-direction:column}
+.card:hover{border-color:var(--accent)}
+.card .thumb{height:150px;background:var(--panel2) center/cover no-repeat;border-bottom:1px solid var(--border)}
+.card .body{padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.card .title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .sub{font-size:12px;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.badge{font-size:11px;padding:1px 7px;border-radius:99px;border:1px solid var(--border);background:var(--panel2);color:var(--muted)}
+.badge.run{color:var(--accent);border-color:var(--accent)}
+.badge.err{color:var(--err-b);border-color:var(--err-b)}
+.badge.ok{color:var(--ok-b);border-color:var(--ok-b)}
+.empty{text-align:center;color:var(--muted);padding:70px 20px;border:2px dashed var(--border);border-radius:14px}
+.empty .big{font-size:42px}
+
+/* note view */
+.note-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.note-top h2{margin:0 auto 0 4px;font-size:19px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+.pane{background:var(--panel);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:16px}
+.left-pane{position:sticky;top:76px}
+.left-pane img{width:100%;border-radius:8px;border:1px solid var(--border);cursor:zoom-in;background:#fff;display:block}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;margin-top:12px;align-items:center}
+.kv label{font-size:13px;color:var(--muted)}
+.kv input{padding:5px 8px}
+.sec{border-radius:12px;padding:14px 16px;margin-bottom:14px;border:1px solid var(--border);background:var(--panel2)}
+.sec h3{margin:0 0 8px;font-size:15px;display:flex;align-items:center;gap:6px}
+.sec ul,.sec ol{margin:0;padding-left:20px}
+.sec li{margin:4px 0}
+.sec p{margin:4px 0}
+.sec.tip{background:var(--tip);border-color:var(--tip-b)}
+.sec.err{background:var(--err);border-color:var(--err-b)}
+.sec.ok{background:var(--ok);border-color:var(--ok-b)}
+.sec .lbl{font-size:12px;font-weight:700;color:var(--muted);margin-top:8px}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{background:var(--accent-weak);color:var(--accent);padding:2px 9px;border-radius:99px;font-size:13px}
+details.sec summary{cursor:pointer;font-weight:600}
+.problem-text{white-space:pre-wrap}
+.spinner{width:34px;height:34px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:30px auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+dialog{border:1px solid var(--border);border-radius:16px;background:var(--panel);color:var(--text);padding:0;width:min(560px,calc(100% - 32px));box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog::backdrop{background:rgba(10,15,30,.45)}
+.dlg-h{padding:16px 20px;border-bottom:1px solid var(--border);font-weight:700;font-size:16px}
+.dlg-b{padding:4px 20px 18px;max-height:70vh;overflow:auto}
+.dlg-f{padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.drop{margin-top:14px;border:2px dashed var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--muted);cursor:pointer}
+.drop.over{border-color:var(--accent);background:var(--accent-weak)}
+.previews{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.previews div{position:relative}
+.previews img{width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid var(--border)}
+.previews button{position:absolute;top:-6px;right:-6px;border:0;border-radius:50%;width:20px;height:20px;background:var(--err-b);color:#fff;font-size:12px;line-height:20px;padding:0}
+.radio-row{display:flex;gap:10px;margin-top:6px}
+.radio-row label{flex:1;border:1px solid var(--border);border-radius:10px;padding:10px;cursor:pointer;display:flex;gap:8px;align-items:center}
+.radio-row label:has(input:checked){border-color:var(--accent);background:var(--accent-weak)}
+.row{display:flex;gap:6px}
+.hint{font-size:12px;color:var(--muted);margin-top:4px}
+.hint a{color:var(--accent)}
+fieldset{border:1px solid var(--border);border-radius:12px;margin:14px 0 0;padding:4px 14px 14px}
+legend{padding:0 6px;font-weight:600}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:50;cursor:zoom-out;padding:16px}
+.lightbox.on{display:flex}
+.lightbox img{max-width:100%;max-height:100%}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:9px 16px;border-radius:10px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60;max-width:calc(100% - 32px)}
+#toast.on{opacity:1}
+
+/* quiz */
+.progress{height:6px;background:var(--border);border-radius:99px;overflow:hidden;flex:1;min-width:100px}
+.progress i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.quiz-ask{text-align:center;padding:22px 10px 6px}
+.quiz-ask .big{font-size:40px}
+.quiz-ask h3{margin:6px 0}
+.grade{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grade .btn{justify-content:center;padding:12px;font-size:16px;font-weight:600}
+.grade .r{border-color:var(--ok-b);color:var(--ok-b)}
+.grade .w{border-color:var(--err-b);color:var(--err-b)}
+.kbd{font-size:11px;border:1px solid currentColor;border-radius:4px;padding:0 5px;opacity:.6;font-weight:400}
+.stats{display:flex;gap:12px;justify-content:center;margin:18px 0;flex-wrap:wrap}
+.stat{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px 22px;text-align:center;color:var(--muted)}
+.stat b{display:block;font-size:28px;color:var(--text)}
+
+/* similar problems */
+.sim-item{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 34px 10px 12px;margin:8px 0}
+.sim-q{white-space:pre-wrap}
+.choices{list-style:none;padding-left:4px;margin:6px 0}
+.choices li{margin:3px 0}
+.sim-item details summary{cursor:pointer;color:var(--accent);font-size:14px;margin-top:4px}
+.mini-del{position:absolute;top:6px;right:6px;border:0;background:none;opacity:.45}
+.mini-del:hover{opacity:1}
+
+@media (max-width: 860px){
+  .layout{flex-direction:column}
+  aside{width:auto;border-right:0;border-bottom:1px solid var(--border);padding:10px 16px}
+  #folders{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+  #folders li{flex-shrink:0;border:1px solid var(--border)}
+  aside h2,.side-foot .btn:not(.keep){display:none}
+  .side-foot{flex-direction:row;margin-top:0}
+  main{padding:16px}
+  .note-grid{grid-template-columns:1fr}
+  .left-pane{position:static}
+  header{padding:0 16px}
+  header .search{max-width:none}
+  header h1 .full{display:none}
+}
+@media print{
+  header,aside,.note-top .btn,.toolbar,.banner,.no-print{display:none!important}
+  body{background:#fff;color:#000}
+  main{padding:0}
+  .note-grid{grid-template-columns:1fr 1fr}
+  .pane{box-shadow:none;border:0;padding:0}
+  .left-pane{position:static}
+  details.sec{display:block}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>📒 <span class="full">AI </span>오답노트</h1>
+  <input type="search" class="search" id="search" placeholder="노트 검색 (제목, 개념, 메모)">
+  <button class="btn" data-act="settings" title="설정">⚙️ <span class="full">설정</span></button>
+</header>
+<div class="layout">
+  <aside>
+    <h2>과목 폴더</h2>
+    <ul id="folders"></ul>
+    <div class="side-foot">
+      <button class="btn keep" data-act="add-folder">＋ 폴더 추가</button>
+      <button class="btn" data-act="export">⬇️ 백업 내보내기</button>
+      <button class="btn" data-act="import">⬆️ 백업 불러오기</button>
+    </div>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<!-- 오답 추가 -->
+<dialog id="addDlg">
+  <form method="dialog" id="addForm">
+    <div class="dlg-h">＋ 오답 추가</div>
+    <div class="dlg-b">
+      <div class="drop" id="drop">📷 문제 사진을 클릭해서 선택하거나<br>여기로 끌어다 놓으세요 (Ctrl+V 붙여넣기도 가능)<br><small>여러 장 선택하면 문제별로 노트가 만들어집니다</small></div>
+      <input type="file" id="fileIn" accept="image/*" multiple hidden>
+      <div class="previews" id="previews"></div>
+      <label class="f">과목 폴더</label>
+      <select id="addFolder"></select>
+      <label class="f">내가 쓴 답 (선택 — 입력하면 오답 분석이 더 정확해요)</label>
+      <input type="text" id="addMine" placeholder="예: ③ / x = 4">
+      <label class="f">정답 (선택)</label>
+      <input type="text" id="addAnswer" placeholder="예: ⑤ / x = -2">
+      <label class="f">메모 (선택)</label>
+      <textarea id="addMemo" placeholder="예: 시간이 부족해서 찍었음, 부호 실수 같음"></textarea>
+    </div>
+    <div class="dlg-f">
+      <button class="btn" value="cancel">취소</button>
+      <button class="btn primary" id="addGo" value="go">🤖 AI 분석 시작</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 설정 -->
+<dialog id="setDlg">
+  <form method="dialog">
+    <div class="dlg-h">⚙️ AI 연결 설정</div>
+    <div class="dlg-b">
+      <label class="f">사용할 AI</label>
+      <div class="radio-row">
+        <label><input type="radio" name="prov" value="claude"> Claude (Anthropic)</label>
+        <label><input type="radio" name="prov" value="gemini"> Gemini (Google)</label>
+      </div>
+      <fieldset>
+        <legend>Claude</legend>
+        <label class="f">API 키</label>
+        <input type="password" id="claudeKey" placeholder="sk-ant-..." autocomplete="off">
+        <div class="hint"><a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>에 Claude 계정으로 로그인 → API Keys에서 발급. 무료 제공은 없고 크레딧을 충전해 쓴 만큼 차감돼요 (Haiku가 가장 저렴)</div>
+        <label class="f">모델</label>
+        <div class="row"><select id="claudeModel"></select><button type="button" class="btn sm" data-act="load-models" data-p="claude">목록 불러오기</button></div>
+      </fieldset>
+      <fieldset>
+        <legend>Gemini</legend>
+        <label class="f">API 키</label>
+        <input type="password" id="geminiKey" placeholder="AIza..." autocomplete="off">
+        <div class="hint"><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>에 Google 계정으로 로그인 → Get API key (무료 사용량 있음)</div>
+        <label class="f">모델</label>
+        <div class="row"><select id="geminiModel"></select><button type="button" class="btn sm" data-act="load-models" data-p="gemini">목록 불러오기</button></div>
+      </fieldset>
+      <p class="hint">🔒 키는 이 브라우저(localStorage)에만 저장되고, 분석 요청 시 Anthropic/Google 서버로만 직접 전송됩니다.</p>
+    </div>
+    <div class="dlg-f">
+      <button class="btn" value="cancel">닫기</button>
+      <button class="btn primary" value="save" id="setSave">저장</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 복습 퀴즈 -->
+<dialog id="quizDlg">
+  <form method="dialog">
+    <div class="dlg-h">🧠 복습 퀴즈</div>
+    <div class="dlg-b">
+      <label class="f">범위</label>
+      <select id="qScope"></select>
+      <label class="f">출제 대상</label>
+      <select id="qMode">
+        <option value="due">오늘 복습할 문제 (간격 반복)</option>
+        <option value="wrong">지난 퀴즈에서 틀린 문제</option>
+        <option value="all">전체에서 무작위</option>
+      </select>
+      <label class="f">문제 수</label>
+      <select id="qCount"><option>5</option><option selected>10</option><option>20</option><option value="9999">전부</option></select>
+      <label class="f" style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" id="qSim" checked> 유사 문제가 있으면 원본 대신 유사 문제로 출제 (답 외우기 방지)</label>
+      <p class="hint" id="qInfo"></p>
+      <p class="hint">맞히면 다음 복습까지 간격이 3 → 7 → 14 → 30 → 60일로 늘어나고, 틀리면 다음 날 다시 나와요.</p>
+    </div>
+    <div class="dlg-f">
+      <button class="btn" value="cancel">취소</button>
+      <button class="btn primary" value="go" id="qGo">시작</button>
+    </div>
+  </form>
+</dialog>
+
+<input type="file" id="importIn" accept="application/json" hidden>
+<div class="lightbox" id="lightbox"><img alt="문제 이미지 확대"></div>
+<div id="toast"></div>
+
+<script>
+/* ---------- 유틸 ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const fmtDate = t => new Date(t).toLocaleDateString('ko-KR', {month:'short', day:'numeric'});
+function toast(msg, ms = 2600){ const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('on'), ms); }
+
+/* ---------- 저장소 (IndexedDB) ---------- */
+let db;
+function openDB(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('ai-wrongnote', 1);
+    r.onupgradeneeded = () => { const d = r.result; d.createObjectStore('folders', {keyPath:'id'}); d.createObjectStore('notes', {keyPath:'id'}); };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+function tx(store, mode, fn){
+  return new Promise((res, rej) => {
+    const t = db.transaction(store, mode); const req = fn(t.objectStore(store));
+    t.oncomplete = () => res(req ? req.result : undefined); t.onerror = () => rej(t.error);
+  });
+}
+const dbAll = store => tx(store, 'readonly', s => s.getAll());
+const dbPut = (store, v) => tx(store, 'readwrite', s => s.put(v));
+const dbDel = (store, id) => tx(store, 'readwrite', s => s.delete(id));
+
+/* ---------- 설정 ---------- */
+const DEF = {provider:'claude', claudeKey:'', geminiKey:'', claudeModel:'claude-opus-5-5', geminiModel:''};
+const CLAUDE_MODELS = ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5', 'claude-fable-5-2'];
+const GEMINI_MODELS = []; // Gemini는 모델이 자주 바뀌어서 계정에서 쓸 수 있는 목록을 받아와 자동 선택
+
+// 텍스트 생성용 Gemini 모델 중 가장 최신 버전을 고름 (무료 사용량이 넉넉한 flash 우선)
+function pickGemini(ids){
+  const ok = ids.filter(id => /^gemini-\d+(\.\d+)?-(flash|pro)/.test(id) && !/lite|image|tts|live|audio|embed|thinking|computer/.test(id));
+  const ver = id => parseFloat(id.match(/^gemini-(\d+(?:\.\d+)?)/)[1]);
+  const score = id => ver(id) * 10 + (/flash/.test(id) ? 2 : 0) + (/preview|exp/.test(id) ? 0 : 1) - (/-\d{2,}/.test(id) ? .5 : 0);
+  return ok.sort((a, b) => score(b) - score(a))[0] || ids[0] || '';
+}
+async function fetchGeminiModels(){
+  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', {headers:{'x-goog-api-key':CFG.geminiKey}});
+  if (!res.ok) throw await apiError(res);
+  return ((await res.json()).models || [])
+    .filter(m => (m.supportedGenerationMethods || []).includes('generateContent') && /gemini/.test(m.name) && !/tts|image|embed|live|audio/.test(m.name))
+    .map(m => m.name.replace(/^models\//, ''));
+}
+let CFG = loadCfg();
+function loadCfg(){ try { return {...DEF, ...JSON.parse(localStorage.getItem('wn-settings') || '{}')}; } catch { return {...DEF}; } }
+function saveCfg(){ try { localStorage.setItem('wn-settings', JSON.stringify(CFG)); } catch { toast('설정을 저장할 수 없습니다 (브라우저 저장소 차단)'); } }
+const hasKey = () => CFG.provider === 'claude' ? !!CFG.claudeKey : !!CFG.geminiKey;
+
+/* ---------- 상태 ---------- */
+const S = {folders:[], notes:[], folder:'all', noteId:null, query:'', filter:'all', editing:false, quiz:null, simBusy:new Set()};
+const folderName = id => (S.folders.find(f => f.id === id) || {}).name || '미분류';
+
+/* ---------- 렌더링 ---------- */
+function render(){ renderSidebar(); S.quiz ? renderQuiz() : S.noteId ? renderNote() : renderList(); }
+
+/* ---------- 복습 퀴즈 (간격 반복) ---------- */
+const DAY = 864e5, INTERVALS = [1, 3, 7, 14, 30, 60];
+const endOfToday = () => new Date().setHours(23, 59, 59, 999);
+const isDue = n => n.status === 'done' && (!n.nextReview || n.nextReview <= endOfToday());
+const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--){ const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+function quizPool(scope, mode){
+  let a = S.notes.filter(n => n.status === 'done' && (scope === 'all' || n.folderId === scope));
+  if (mode === 'due') a = a.filter(isDue);
+  if (mode === 'wrong') a = a.filter(n => n.lastQuiz === 'wrong');
+  return a;
+}
+function openQuiz(){
+  $('#qScope').innerHTML = `<option value="all">📚 전체</option>` + S.folders.map(f => `<option value="${f.id}" ${f.id === S.folder ? 'selected' : ''}>${esc(f.name)}</option>`).join('');
+  $('#qMode').value = quizPool($('#qScope').value, 'due').length ? 'due' : 'all';
+  updateQInfo(); $('#quizDlg').showModal();
+}
+function updateQInfo(){
+  const n = quizPool($('#qScope').value, $('#qMode').value).length;
+  $('#qInfo').textContent = n ? `출제할 수 있는 문제: ${n}개` : '조건에 맞는 문제가 없어요 (AI 분석이 끝난 노트만 출제돼요)';
+  $('#qGo').disabled = !n;
+}
+function startQuiz(ids, useSim){ S.quiz = {ids, i:0, revealed:false, hint:false, typed:'', results:{}, useSim, pick:{}}; S.noteId = null; S.editing = false; window.scrollTo(0, 0); render(); }
+
+async function gradeQuiz(ok){
+  const q = S.quiz, n = S.notes.find(x => x.id === q.ids[q.i]);
+  if (n){
+    n.box = ok ? Math.min((n.box ?? 0) + 1, INTERVALS.length - 1) : 0;
+    n.nextReview = Date.now() + INTERVALS[n.box] * DAY;
+    n[ok ? 'quizRight' : 'quizWrong'] = (n[ok ? 'quizRight' : 'quizWrong'] || 0) + 1;
+    n.lastQuiz = ok ? 'right' : 'wrong'; n.reviews = (n.reviews || 0) + 1; n.lastReview = Date.now();
+    await dbPut('notes', n);
+  }
+  q.results[q.ids[q.i]] = ok; q.i++; q.revealed = false; q.hint = false; q.typed = '';
+  window.scrollTo(0, 0); render();
+}
+
+function renderQuiz(){
+  const q = S.quiz, total = q.ids.length;
+  if (q.i >= total) return renderQuizEnd();
+  const n = S.notes.find(x => x.id === q.ids[q.i]);
+  if (!n){ q.i++; return renderQuiz(); }
+  const r = n.result || {}, e = r.error_analysis || {};
+  // 유사 문제가 있으면 그중 하나를 무작위로 출제
+  if (q.useSim && n.similar?.length && q.pick[n.id] === undefined) q.pick[n.id] = Math.random() * n.similar.length | 0;
+  const sp = q.useSim && n.similar?.length ? n.similar[q.pick[n.id]] : null;
+  const answerSec = sp
+    ? `<div class="sec ok"><h3>✅ 정답</h3><p style="font-size:17px"><b>${esc(sp.answer)}</b></p>
+        ${q.typed ? `<p>방금 내 답: ${esc(q.typed)}</p>` : ''}
+        <details><summary>해설 보기</summary><p class="problem-text">${esc(sp.explanation)}</p></details>
+        ${sp.point ? `<p class="hint">🎯 확인 포인트: ${esc(sp.point)}</p>` : ''}</div>`
+    : `<div class="sec ok"><h3>✅ 정답</h3><p style="font-size:17px"><b>${esc(r.correct_answer)}</b></p>
+        ${q.typed ? `<p>방금 내 답: ${esc(q.typed)}</p>` : ''}
+        <details><summary>풀이 보기</summary><ol>${li(r.solution)}</ol></details></div>`;
+  const left = sp
+    ? `<div class="pane left-pane"><span class="badge run">🧩 유사 문제</span>
+        <div class="sim-q" style="font-size:16px;margin-top:10px">${esc(sp.question)}</div>
+        ${sp.choices?.length ? `<ol class="choices">${sp.choices.map(c => `<li>${esc(c)}</li>`).join('')}</ol>` : ''}
+        <details style="margin-top:14px"><summary class="hint" style="cursor:pointer">원본 문제 보기</summary><img src="${n.image}" alt="원본 문제" data-act="zoom" style="margin-top:8px"></details></div>`
+    : `<div class="pane left-pane"><img src="${n.image}" alt="문제 이미지" data-act="zoom"></div>`;
+  const right = !q.revealed ? `<div class="pane">
+      <div class="quiz-ask"><div class="big">✍️</div><h3>이 문제를 다시 풀어보세요</h3><p class="hint">연습장에 풀고 답을 적은 다음 정답을 확인하세요.</p></div>
+      <label class="f">내 답 (선택)</label><input type="text" id="qTyped" value="${esc(q.typed)}" placeholder="답을 적어보세요" autocomplete="off">
+      ${q.hint ? `<div class="sec tip" style="margin-top:12px"><h3>💡 힌트</h3><p>${esc(r.key_tips?.[0] || '힌트가 없어요')}</p></div>` : ''}
+      <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+        ${q.hint ? '' : '<button class="btn" data-act="quiz-hint">💡 힌트</button>'}
+        <button class="btn primary" data-act="quiz-reveal">정답 확인 <span class="kbd">Enter</span></button>
+      </div></div>`
+    : `<div class="pane">
+      ${answerSec}
+      <div class="sec tip"><h3>📌 핵심 팁</h3><ul>${li(r.key_tips)}</ul></div>
+      <div class="sec err"><h3>🔍 지난번 오답 ${e.mistake_type ? `<span class="badge err">${esc(e.mistake_type)}</span>` : ''}</h3>
+        ${n.mine ? `<p>그때 쓴 답: <b>${esc(n.mine)}</b></p>` : ''}<p>${esc(e.analysis)}</p><div class="lbl">다음엔 이렇게</div><p>${esc(e.prevention)}</p></div>
+      <div class="grade">
+        <button class="btn r" data-act="quiz-grade" data-ok="1">⭕ 맞혔어요 <span class="kbd">1</span></button>
+        <button class="btn w" data-act="quiz-grade" data-ok="0">❌ 또 틀렸어요 <span class="kbd">2</span></button>
+      </div></div>`;
+  $('#main').innerHTML = `
+    <div class="note-top">
+      <button class="btn" data-act="quiz-exit">✕ 그만하기</button>
+      <h2 style="margin:0 6px;flex:0 0 auto">🧠 ${q.i + 1} / ${total}</h2>
+      <div class="progress"><i style="width:${q.i / total * 100}%"></i></div>
+      <span class="badge">📁 ${esc(folderName(n.folderId))}</span>
+    </div>
+    <div class="note-grid">
+      ${left}
+      <div>${right}</div>
+    </div>`;
+  renderMath($('#main'));
+  if (!q.revealed) $('#qTyped')?.focus({preventScroll:true});
+}
+
+function renderQuizEnd(){
+  const q = S.quiz, ids = Object.keys(q.results), right = ids.filter(id => q.results[id]).length, wrong = ids.length - right;
+  const wrongNotes = ids.filter(id => !q.results[id]).map(id => S.notes.find(n => n.id === id)).filter(Boolean);
+  $('#main').innerHTML = `<div class="pane" style="max-width:760px;margin:0 auto;text-align:center">
+    <div style="font-size:46px">${wrong ? '💪' : '🎉'}</div><h2 style="margin:4px 0">복습 퀴즈 완료!</h2>
+    <div class="stats">
+      <div class="stat"><b style="color:var(--ok-b)">${right}</b>맞힘</div>
+      <div class="stat"><b style="color:var(--err-b)">${wrong}</b>틀림</div>
+      <div class="stat"><b>${ids.length ? Math.round(right / ids.length * 100) : 0}%</b>정답률</div>
+    </div>
+    ${wrongNotes.length ? `<div style="text-align:left"><h3>다시 볼 문제 — 내일 다시 출제돼요</h3><div class="grid">${wrongNotes.map(n => cardHTML(n, true)).join('')}</div></div>`
+      : '<p>모두 맞혔어요! 다음 복습일에 다시 만나요.</p>'}
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:18px;flex-wrap:wrap">
+      ${wrongNotes.length ? '<button class="btn primary" data-act="quiz-retry">❌ 틀린 문제만 다시 풀기</button>' : ''}
+      <button class="btn" data-act="quiz-exit">목록으로</button>
+    </div></div>`;
+}
+
+function renderSidebar(){
+  const cnt = {}; S.notes.forEach(n => cnt[n.folderId] = (cnt[n.folderId] || 0) + 1);
+  const fs = [...S.folders].sort((a, b) => a.order - b.order);
+  $('#folders').innerHTML =
+    `<li class="${S.folder === 'all' ? 'active' : ''}" data-f="all"><span>📚 전체</span><b>${S.notes.length}</b></li>` +
+    fs.map(f => `<li class="${S.folder === f.id ? 'active' : ''}" data-f="${f.id}"><span>📁 ${esc(f.name)}</span><b>${cnt[f.id] || 0}</b>` +
+      `<button class="mini" data-act="rename-folder" data-id="${f.id}" title="이름 변경">✏️</button>` +
+      `<button class="mini" data-act="del-folder" data-id="${f.id}" title="삭제">🗑</button></li>`).join('');
+}
+
+function filtered(){
+  let a = S.notes;
+  if (S.folder !== 'all') a = a.filter(n => n.folderId === S.folder);
+  if (S.filter === 'due') a = a.filter(isDue);
+  if (S.filter === 'todo') a = a.filter(n => !n.reviews);
+  if (S.query){ const q = S.query.toLowerCase(); a = a.filter(n => JSON.stringify([n.title, n.result, n.memo, n.mine, n.answer]).toLowerCase().includes(q)); }
+  return [...a].sort((x, y) => y.createdAt - x.createdAt);
+}
+
+function statusBadge(n){
+  if (n.status === 'analyzing') return '<span class="badge run">분석 중…</span>';
+  if (n.status === 'error') return '<span class="badge err">분석 실패</span>';
+  const due = isDue(n) ? '<span class="badge run">오늘 복습</span>' : n.nextReview ? `<span class="badge">다음 ${fmtDate(n.nextReview)}</span>` : '';
+  const rec = (n.quizRight || n.quizWrong) ? `<span class="badge ok">⭕${n.quizRight || 0} ❌${n.quizWrong || 0}</span>` : '';
+  return due + rec;
+}
+
+function cardHTML(n, showFolder){
+  return `<div class="card" data-note="${n.id}">
+    <div class="thumb" style="background-image:url('${n.thumb}')"></div>
+    <div class="body">
+      <div class="title">${esc(n.title || '제목 없음')}</div>
+      <div class="sub">${showFolder ? `<span>📁 ${esc(folderName(n.folderId))}</span>` : ''}<span>${fmtDate(n.createdAt)}</span>
+        ${n.result?.difficulty ? `<span class="badge">난이도 ${esc(n.result.difficulty)}</span>` : ''}${statusBadge(n)}</div>
+    </div>
+  </div>`;
+}
+
+function renderList(){
+  const list = filtered();
+  const title = S.folder === 'all' ? '전체 오답' : folderName(S.folder);
+  const dueCount = quizPool(S.folder, 'due').length;
+  const banner = hasKey() ? '' : `<div class="banner">🔑 AI 분석을 쓰려면 먼저 Claude 또는 Gemini API 키를 등록하세요. <button class="btn sm primary" data-act="settings">설정 열기</button></div>`;
+  $('#main').innerHTML = `${banner}
+    <div class="toolbar">
+      <h2>${esc(title)} <small style="color:var(--muted);font-weight:400;font-size:14px">${list.length}개</small></h2>
+      <div class="seg">
+        <button data-act="filter" data-v="all" class="${S.filter === 'all' ? 'on' : ''}">전체</button>
+        <button data-act="filter" data-v="due" class="${S.filter === 'due' ? 'on' : ''}">오늘 복습</button>
+        <button data-act="filter" data-v="todo" class="${S.filter === 'todo' ? 'on' : ''}">미복습</button>
+      </div>
+      <button class="btn" data-act="quiz-open">🧠 복습 퀴즈${dueCount ? ` <span class="badge run">${dueCount}</span>` : ''}</button>
+      <button class="btn primary" data-act="add">＋ 오답 추가</button>
+    </div>
+    ${list.length ? `<div class="grid">${list.map(n => cardHTML(n, S.folder === 'all')).join('')}</div>`
+    : `<div class="empty"><div class="big">📝</div><p>${S.query ? '검색 결과가 없습니다.' : '아직 오답이 없어요. 틀린 문제 사진을 올려보세요!'}</p>
+        ${S.query ? '' : '<button class="btn primary" data-act="add">＋ 오답 추가</button>'}</div>`}`;
+}
+
+const li = arr => (arr || []).filter(Boolean).map(x => `<li>${esc(x)}</li>`).join('');
+
+function renderNote(){
+  const n = S.notes.find(x => x.id === S.noteId);
+  if (!n){ S.noteId = null; return renderList(); }
+  const r = n.result;
+  let right;
+  if (n.status === 'analyzing') right = `<div class="pane" style="text-align:center"><div class="spinner"></div><p>AI가 문제를 읽고 분석하고 있어요…</p><p class="hint">${n.progress ? '⏳ ' + esc(n.progress) : '보통 10~60초 걸립니다. 다른 화면으로 이동해도 계속 진행돼요.'}</p></div>`;
+  else if (n.status === 'error') right = `<div class="pane"><div class="sec err"><h3>⚠️ 분석에 실패했어요</h3><p>${esc(n.error)}</p></div><button class="btn primary" data-act="reanalyze">다시 시도</button> <button class="btn" data-act="settings">설정 확인</button></div>`;
+  else if (S.editing) right = editForm(n);
+  else right = `<div class="pane" id="analysis">
+      <div class="sec tip"><h3>📌 핵심 팁</h3><ul>${li(r.key_tips)}</ul></div>
+      <div class="sec err"><h3>🔍 오답 분석 ${r.error_analysis?.mistake_type ? `<span class="badge err">${esc(r.error_analysis.mistake_type)}</span>` : ''}</h3>
+        <p>${esc(r.error_analysis?.analysis)}</p>
+        <div class="lbl">다음엔 이렇게</div><p>${esc(r.error_analysis?.prevention)}</p></div>
+      <div class="sec ok"><h3>✅ 정답 및 풀이</h3><p><b>정답:</b> ${esc(r.correct_answer)}</p><ol>${li(r.solution)}</ol></div>
+      ${(r.related_concepts || []).length ? `<div class="sec"><h3>🧩 관련 개념 ${r.unit ? `<span class="badge">${esc(r.unit)}</span>` : ''}</h3><div class="tags">${r.related_concepts.map(c => `<span class="tag">${esc(c)}</span>`).join('')}</div></div>` : ''}
+      <details class="sec"><summary>📄 문제 텍스트 (AI 인식)</summary><div class="problem-text">${esc(r.problem_text)}</div></details>
+      ${simSection(n)}
+    </div>`;
+
+  const folderOpts = S.folders.map(f => `<option value="${f.id}" ${f.id === n.folderId ? 'selected' : ''}>${esc(f.name)}</option>`).join('');
+  $('#main').innerHTML = `
+    <div class="note-top">
+      <button class="btn" data-act="back">← 목록</button>
+      <h2>${esc(n.title || '제목 없음')}</h2>
+      ${n.status === 'done' ? `<button class="btn" data-act="review">✔️ 복습했어요${n.reviews ? ` (${n.reviews})` : ''}</button>
+      <button class="btn" data-act="edit">${S.editing ? '편집 취소' : '✏️ 편집'}</button>` : ''}
+      <button class="btn" data-act="reanalyze" title="AI로 다시 분석">🔄 재분석</button>
+      <select id="moveFolder" style="width:auto" title="폴더 이동">${folderOpts}</select>
+      <button class="btn" data-act="print">🖨 인쇄</button>
+      <button class="btn danger" data-act="del-note">🗑</button>
+    </div>
+    <div class="note-grid">
+      <div class="pane left-pane">
+        <img src="${n.image}" alt="문제 이미지" data-act="zoom">
+        <div class="kv no-print">
+          <label>내 답</label><input type="text" data-field="mine" value="${esc(n.mine)}" placeholder="내가 쓴 답">
+          <label>정답</label><input type="text" data-field="answer" value="${esc(n.answer)}" placeholder="정답 (선택)">
+        </div>
+        <label class="f">내 메모</label>
+        <textarea data-field="memo" placeholder="다시 볼 때 기억할 점을 적어두세요">${esc(n.memo)}</textarea>
+        <p class="hint">${fmtDate(n.createdAt)} 등록${n.model ? ` · ${esc(n.model)} 분석` : ''}${n.lastReview ? ` · 마지막 복습 ${fmtDate(n.lastReview)}` : ''}${n.nextReview ? ` · 다음 복습 ${fmtDate(n.nextReview)}` : ''}${(n.quizRight || n.quizWrong) ? ` · 퀴즈 ⭕${n.quizRight || 0} ❌${n.quizWrong || 0}` : ''}</p>
+      </div>
+      <div>${right}</div>
+    </div>`;
+  renderMath($('#analysis'));
+}
+
+function simSection(n){
+  const busy = S.simBusy.has(n.id), list = n.similar || [];
+  return `<div class="sec"><h3>🧩 유사 문제 ${list.length ? `<span class="badge">${list.length}</span>` : ''}</h3>
+    ${list.length ? list.map((p, i) => `<div class="sim-item">
+        <div class="sim-q"><b>Q${i + 1}.</b> ${esc(p.question)}</div>
+        ${p.choices?.length ? `<ol class="choices">${p.choices.map(c => `<li>${esc(c)}</li>`).join('')}</ol>` : ''}
+        <details><summary>정답·해설 보기</summary><p><b>정답:</b> ${esc(p.answer)}</p><p class="problem-text">${esc(p.explanation)}</p>
+          ${p.point ? `<p class="hint">🎯 확인 포인트: ${esc(p.point)}</p>` : ''}</details>
+        <button class="mini-del no-print" data-act="sim-del" data-i="${i}" title="이 문제 삭제">🗑</button></div>`).join('')
+      : '<p class="hint">같은 개념·같은 함정을 숫자와 상황만 바꿔서 다시 연습해 보세요. 복습 퀴즈에서도 원본 대신 출제돼요.</p>'}
+    <div class="no-print" style="display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:10px">
+      ${busy ? '<span class="hint">⏳ AI가 문제를 만들고 있어요…</span>'
+        : `<button class="btn sm primary" data-act="sim-gen">${list.length ? '＋ 3문제 더 만들기' : '🤖 유사 문제 3개 만들기'}</button>`}
+    </div></div>`;
+}
+
+function editForm(n){
+  const r = n.result, e = r.error_analysis || {};
+  return `<form class="pane" id="editForm">
+    <label class="f">제목</label><input type="text" name="title" value="${esc(n.title)}">
+    <label class="f">📌 핵심 팁 (한 줄에 하나씩)</label><textarea name="key_tips" rows="5">${esc((r.key_tips || []).join('\n'))}</textarea>
+    <label class="f">🔍 오류 유형</label><input type="text" name="mistake_type" value="${esc(e.mistake_type)}">
+    <label class="f">오답 분석</label><textarea name="analysis" rows="4">${esc(e.analysis)}</textarea>
+    <label class="f">다음엔 이렇게</label><textarea name="prevention" rows="3">${esc(e.prevention)}</textarea>
+    <label class="f">✅ 정답</label><input type="text" name="correct_answer" value="${esc(r.correct_answer)}">
+    <label class="f">풀이 (한 줄에 한 단계씩)</label><textarea name="solution" rows="6">${esc((r.solution || []).join('\n'))}</textarea>
+    <label class="f">🧩 관련 개념 (쉼표로 구분)</label><input type="text" name="related_concepts" value="${esc((r.related_concepts || []).join(', '))}">
+    <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end"><button type="button" class="btn" data-act="edit">취소</button><button class="btn primary">저장</button></div>
+  </form>`;
+}
+
+function renderMath(el){
+  if (!el || !window.renderMathInElement) return;
+  try { renderMathInElement(el, {delimiters:[{left:'$$', right:'$$', display:true}, {left:'$', right:'$', display:false}, {left:'\\(', right:'\\)', display:false}], throwOnError:false}); } catch {}
+}
+
+/* ---------- 이미지 처리 ---------- */
+function loadImg(file){
+  return new Promise((res, rej) => { const u = URL.createObjectURL(file); const i = new Image(); i.onload = () => { URL.revokeObjectURL(u); res(i); }; i.onerror = () => rej(new Error('이미지를 열 수 없습니다 (HEIC는 JPG/PNG로 변환 후 올려주세요)')); i.src = u; });
+}
+function toJpeg(img, max, q){
+  const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', q);
+}
+
+/* ---------- AI 분석 ---------- */
+const SCHEMA = {
+  type:'object', additionalProperties:false,
+  required:['title','problem_text','unit','correct_answer','solution','key_tips','error_analysis','related_concepts','difficulty'],
+  properties:{
+    title:{type:'string', description:'문제를 한눈에 알아볼 짧은 제목 (20자 이내)'},
+    problem_text:{type:'string', description:'이미지 속 문제 전문 (보기 포함)'},
+    unit:{type:'string', description:'단원 또는 주제'},
+    correct_answer:{type:'string'},
+    solution:{type:'array', items:{type:'string'}, description:'단계별 풀이'},
+    key_tips:{type:'array', items:{type:'string'}, description:'이 유형을 다시 만났을 때 기억할 핵심 팁 3~5개'},
+    error_analysis:{type:'object', additionalProperties:false, required:['mistake_type','analysis','prevention'], properties:{
+      mistake_type:{type:'string', description:'예: 개념 부족, 계산 실수, 문제 잘못 읽음, 함정 선지, 시간 부족'},
+      analysis:{type:'string', description:'학생이 왜 틀렸는지 구체적 분석'},
+      prevention:{type:'string', description:'같은 실수를 막는 구체적 행동 지침'}}},
+    related_concepts:{type:'array', items:{type:'string'}},
+    difficulty:{type:'string', enum:['하','중','상']}
+  }
+};
+
+function buildPrompt(n){
+  return `너는 학생의 오답노트를 만들어 주는 정확하고 친절한 선생님이야.
+첨부한 이미지는 학생이 틀린 문제야. 이미지를 꼼꼼히 읽고 문제를 직접 풀어 정답을 확인한 뒤 오답노트를 작성해.
+
+- 과목(폴더): ${folderName(n.folderId)}
+- 학생이 쓴 답: ${n.mine || '(입력 안 함 — 이미지에 표시된 풀이/체크가 있으면 참고하고, 없으면 흔한 실수를 중심으로 분석)'}
+- 정답(학생 제공): ${n.answer || '(입력 안 함 — 직접 풀어서 구해)'}
+- 학생 메모: ${n.memo || '(없음)'}
+
+작성 규칙:
+- 모든 내용은 한국어로, 중고등학생이 이해할 수 있게 써.
+- key_tips는 이 유형을 다시 만났을 때 바로 떠올릴 수 있는 짧고 실전적인 팁 3~5개.
+- error_analysis는 학생의 답(또는 이미지 속 풀이 흔적)을 근거로 왜 틀렸는지 구체적으로, prevention은 실천 가능한 행동으로.
+- solution은 단계별로 나눠 배열에 담아.
+- 수식은 $...$ 형태의 LaTeX로 써.
+- 학생이 준 정답이 네 풀이와 다르면 analysis에 그 점을 밝혀.
+
+반드시 아래 키를 가진 JSON 객체 하나만 출력해 (코드블록 없이):
+title, problem_text, unit, correct_answer, solution(문자열 배열), key_tips(문자열 배열),
+error_analysis{mistake_type, analysis, prevention}, related_concepts(문자열 배열), difficulty("하"|"중"|"상")`;
+}
+
+function parseJSON(text){
+  let t = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+  const a = t.indexOf('{'), b = t.lastIndexOf('}');
+  if (a >= 0 && b > a) t = t.slice(a, b + 1);
+  let obj;
+  try { obj = JSON.parse(t); }
+  catch { obj = JSON.parse(t.replace(/\\(?!["\\/bfnrtu])/g, '\\\\')); } // LaTeX의 잘못된 이스케이프 보정
+  // JSON 이스케이프로 깨진 LaTeX(\frac → 폼피드 등) 복구
+  const fix = v => typeof v === 'string' ? v.replace(/\f/g, '\\f').replace(/\x08/g, '\\b').replace(/\t(?=[a-z])/g, '\\t').replace(/\r(?=[a-z])/g, '\\r')
+    : Array.isArray(v) ? v.map(fix) : (v && typeof v === 'object') ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fix(x)])) : v;
+  return fix(obj);
+}
+
+const SIM_SCHEMA = {
+  type:'object', additionalProperties:false, required:['problems'],
+  properties:{problems:{type:'array', items:{type:'object', additionalProperties:false,
+    required:['question','choices','answer','explanation','point'],
+    properties:{
+      question:{type:'string'},
+      choices:{type:'array', items:{type:'string'}, description:'객관식이면 보기 5개, 주관식이면 빈 배열'},
+      answer:{type:'string'},
+      explanation:{type:'string'},
+      point:{type:'string', description:'이 문제가 확인하는 실수 포인트 한 줄'}}}}}
+};
+
+function buildSimPrompt(n, count){
+  const r = n.result || {}, e = r.error_analysis || {};
+  const existing = (n.similar || []).map((p, i) => `${i + 1}. ${p.question}`).join('\n');
+  return `너는 학생 맞춤 문제를 출제하는 선생님이야. 첨부 이미지는 학생이 틀린 원본 문제야.
+
+- 과목(폴더): ${folderName(n.folderId)}
+- 단원: ${r.unit || ''}
+- 원본 문제: ${r.problem_text || '(이미지 참고)'}
+- 원본 정답: ${r.correct_answer || ''}
+- 학생이 쓴 답: ${n.mine || '(모름)'}
+- 학생의 오답 유형: ${e.mistake_type || ''} — ${e.analysis || ''}
+- 핵심 팁: ${(r.key_tips || []).join(' / ')}
+
+이 학생이 같은 실수를 또 하는지 확인할 수 있는 유사 문제 ${count}개를 만들어.
+규칙:
+- 같은 개념과 같은 함정을 다루되 숫자·상황·표현을 바꿔서, 원본 답을 외워서는 풀 수 없게.
+- 난이도는 원본과 비슷하게 하되, 하나는 조금 쉽게, 하나는 조금 어렵게 섞어.
+- 원본이 객관식이면 choices에 "① ..." 형식의 보기 5개, 주관식이면 빈 배열.
+- 그림 없이 글만으로 완전히 풀 수 있는 문제로 만들어.
+- 각 문제를 직접 풀어 정답이 맞는지 반드시 검증해.
+- answer는 정답만 짧게, explanation은 단계별 해설, point는 이 문제가 확인하는 실수 포인트 한 줄.
+- 한국어로, 수식은 $...$ LaTeX로.
+${existing ? `- 이미 만든 아래 문제들과 겹치지 않게:\n${existing}\n` : ''}
+반드시 다음 형태의 JSON 객체 하나만 출력해 (코드블록 없이):
+{"problems":[{"question":"...","choices":[],"answer":"...","explanation":"...","point":"..."}]}`;
+}
+
+async function genSimilar(n, count = 3){
+  if (!hasKey()) return toast('설정에서 API 키를 먼저 입력하세요');
+  if (S.simBusy.has(n.id)) return;
+  S.simBusy.add(n.id); render();
+  try {
+    const out = await callAI(n.image.split(',')[1], buildSimPrompt(n, count), SIM_SCHEMA, {onRetry: msg => toast('⏳ ' + msg, 5000)});
+    const probs = (out.problems || []).filter(p => p && p.question).map(p => ({
+      question:String(p.question), choices:Array.isArray(p.choices) ? p.choices.map(String) : [],
+      answer:String(p.answer || ''), explanation:String(p.explanation || ''), point:String(p.point || '')}));
+    if (!probs.length) throw new Error('문제를 만들지 못했어요. 다시 시도해 주세요.');
+    n.similar = [...(n.similar || []), ...probs]; await dbPut('notes', n);
+    toast(`🧩 유사 문제 ${probs.length}개를 만들었어요`);
+  } catch (e) {
+    toast('❌ ' + (e.message || e) + (e instanceof TypeError ? ' (네트워크 오류)' : ''), 5000);
+  }
+  S.simBusy.delete(n.id); render();
+}
+
+function claudeHeaders(extraBeta){
+  const h = {'content-type':'application/json', 'x-api-key':CFG.claudeKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true'};
+  if (extraBeta) h['anthropic-beta'] = extraBeta;
+  return h;
+}
+async function apiError(res){
+  let msg = `HTTP ${res.status}`;
+  try { const j = await res.json(); msg += ' — ' + (j.error?.message || JSON.stringify(j)); } catch {}
+  if (res.status === 401 || res.status === 403) msg += ' (API 키를 확인하세요)';
+  if (res.status === 429) msg += ' (요청 한도 초과 — 잠시 후 다시 시도)';
+  if ([500, 502, 503, 504, 529].includes(res.status)) msg += ' (AI 서버가 혼잡해요 — 몇 분 뒤 다시 시도하거나 설정에서 다른 모델을 골라 보세요)';
+  const e = new Error(msg); e.status = res.status; return e;
+}
+
+const callAI = (b64, prompt, schema, ctx = {}) => CFG.provider === 'claude' ? callClaude(b64, prompt, schema, ctx) : callGemini(b64, prompt, ctx);
+
+// 서버 혼잡/일시 오류는 잠깐 기다렸다가 자동 재시도 (2초 → 5초 → 10초)
+const BUSY = [429, 500, 502, 503, 504, 529];
+async function fetchRetry(url, opt, ctx = {}){
+  const waits = [2000, 5000, 10000];
+  for (let i = 0; ; i++){
+    const res = await fetch(url, opt);
+    if (!BUSY.includes(res.status) || i >= waits.length) return res;
+    ctx.onRetry?.(`서버가 붐벼서 ${waits[i] / 1000}초 후 다시 시도해요 (${i + 1}/${waits.length})`);
+    await new Promise(r => setTimeout(r, waits[i]));
+  }
+}
+
+async function callClaude(b64, prompt, schema = SCHEMA, ctx = {}){
+  ctx.usedModel = CFG.claudeModel;
+  const model = CFG.claudeModel;
+  const content = [{type:'image', source:{type:'base64', media_type:'image/jpeg', data:b64}}, {type:'text', text:prompt}];
+  const full = {model, max_tokens:16000, messages:[{role:'user', content}], output_config:{format:{type:'json_schema', schema}}};
+  if (/^claude-(fable|mythos|opus-5|opus-4-[678]|sonnet-5|haiku-5)/.test(model)) full.output_config.effort = 'medium';
+  const fb = /^claude-(fable-5-[12]|opus-5-5|opus-5|sonnet-5-5)$/.test(model);
+  if (fb) full.fallbacks = 'default'; // 안전 분류기가 거절하면 서버가 다른 모델로 자동 재시도
+  let res = await fetchRetry('https://api.anthropic.com/v1/messages', {method:'POST', headers:claudeHeaders(fb ? 'server-side-fallback-2026-07-01' : ''), body:JSON.stringify(full)}, ctx);
+  if (res.status === 400){ // 일부 모델이 구조화 출력/폴백을 지원하지 않으면 기본 요청으로 재시도
+    res = await fetchRetry('https://api.anthropic.com/v1/messages', {method:'POST', headers:claudeHeaders(), body:JSON.stringify({model, max_tokens:16000, messages:[{role:'user', content}]})}, ctx);
+  }
+  if (!res.ok) throw await apiError(res);
+  const j = await res.json();
+  if (j.stop_reason === 'refusal') throw new Error('모델이 이 요청을 거절했습니다' + (j.stop_details?.explanation ? ': ' + j.stop_details.explanation : ''));
+  if (j.stop_reason === 'max_tokens') throw new Error('응답이 너무 길어 잘렸습니다. 다시 시도해 주세요.');
+  return parseJSON((j.content || []).filter(c => c.type === 'text').map(c => c.text).join(''));
+}
+
+async function callGemini(b64, prompt, ctx = {}, forced = null, tried = new Set()){
+  if (!CFG.geminiModel){ CFG.geminiModel = pickGemini(await fetchGeminiModels()); saveCfg(); }
+  const model = (forced || CFG.geminiModel).replace(/^models\//, '');
+  tried.add(model);
+  const res = await fetchRetry(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+    method:'POST', headers:{'content-type':'application/json', 'x-goog-api-key':CFG.geminiKey},
+    body:JSON.stringify({contents:[{role:'user', parts:[{inline_data:{mime_type:'image/jpeg', data:b64}}, {text:prompt}]}], generationConfig:{responseMimeType:'application/json'}})
+  }, ctx);
+  if (!res.ok){
+    const err = await apiError(res);
+    const gone = res.status === 404, busy = BUSY.includes(res.status) && res.status !== 429;
+    // 모델 종료(404) → 최신 모델로 교체 / 재시도해도 계속 붐빔(503) → 다른 모델로 이번만 시도
+    if ((gone || busy) && tried.size < 3){
+      const rest = (await fetchGeminiModels()).filter(id => !tried.has(id));
+      // 혼잡할 땐 무료 사용량이 있는 flash 계열을 먼저 시도 (pro는 무료 한도가 없을 수 있음)
+      const next = (busy && pickGemini(rest.filter(id => /flash/.test(id) && !/lite/.test(id)))) || pickGemini(rest);
+      if (next){
+        if (gone){ CFG.geminiModel = next; saveCfg(); toast(`ℹ️ ${model} 대신 ${next} 모델로 바꿨어요`, 4000); }
+        else ctx.onRetry?.(`${model} 서버가 계속 붐벼서 ${next} 모델로 시도하고 있어요…`);
+        return callGemini(b64, prompt, ctx, gone ? null : next, tried);
+      }
+    }
+    throw err;
+  }
+  ctx.usedModel = model;
+  const j = await res.json();
+  const cand = j.candidates?.[0];
+  if (!cand) throw new Error('응답이 비어 있습니다' + (j.promptFeedback?.blockReason ? ` (차단: ${j.promptFeedback.blockReason})` : ''));
+  return parseJSON((cand.content?.parts || []).map(p => p.text || '').join(''));
+}
+
+let queue = Promise.resolve();
+function analyze(n){
+  n.status = 'analyzing'; n.error = ''; n.progress = ''; dbPut('notes', n); render();
+  const ctx = {onRetry: msg => { n.progress = msg; if (S.noteId === n.id && !S.quiz) render(); }};
+  queue = queue.then(async () => {
+    try {
+      if (!hasKey()) throw new Error('API 키가 없습니다. 설정에서 키를 입력하세요.');
+      const b64 = n.image.split(',')[1];
+      const prompt = buildPrompt(n);
+      const result = await callAI(b64, prompt, SCHEMA, ctx);
+      result.key_tips ||= []; result.solution ||= []; result.related_concepts ||= []; result.error_analysis ||= {};
+      n.result = result; n.title = result.title || n.title; n.status = 'done';
+      n.model = ctx.usedModel || (CFG.provider === 'claude' ? CFG.claudeModel : CFG.geminiModel);
+      toast(`✅ "${n.title}" 오답노트 완성`);
+    } catch (e) {
+      n.status = 'error'; n.error = e.message || String(e);
+      if (e instanceof TypeError) n.error += ' (네트워크 오류 — 인터넷 연결을 확인하세요)';
+    }
+    n.progress = ''; await dbPut('notes', n); render();
+  });
+}
+
+async function loadModels(p){
+  try {
+    let ids;
+    if (p === 'claude'){
+      CFG.claudeKey = $('#claudeKey').value.trim();
+      const res = await fetch('https://api.anthropic.com/v1/models?limit=100', {headers:claudeHeaders()});
+      if (!res.ok) throw await apiError(res);
+      ids = (await res.json()).data.map(m => m.id);
+    } else {
+      CFG.geminiKey = $('#geminiKey').value.trim();
+      ids = await fetchGeminiModels();
+    }
+    const sel = $(p === 'claude' ? '#claudeModel' : '#geminiModel'); const cur = sel.value;
+    fillSelect(sel, ids, ids.includes(cur) ? cur : p === 'gemini' ? pickGemini(ids) : ids[0], true);
+    toast(`✅ 연결 성공 — 모델 ${ids.length}개`);
+  } catch (e) { toast('❌ ' + e.message, 5000); }
+}
+function fillSelect(sel, ids, cur, exact){
+  const all = [...new Set((exact ? ids : [cur, ...ids]).filter(Boolean))];
+  sel.innerHTML = all.length ? all.map(id => `<option ${id === cur ? 'selected' : ''}>${esc(id)}</option>`).join('')
+    : '<option value="">자동 선택 (쓸 수 있는 최신 모델)</option>';
+}
+
+/* ---------- 오답 추가 ---------- */
+let pending = [];
+function openAdd(){
+  if (!S.folders.length) return toast('먼저 과목 폴더를 만들어 주세요');
+  pending = []; renderPreviews();
+  $('#addFolder').innerHTML = S.folders.map(f => `<option value="${f.id}" ${f.id === S.folder ? 'selected' : ''}>${esc(f.name)}</option>`).join('');
+  $('#addMine').value = $('#addAnswer').value = $('#addMemo').value = '';
+  $('#addDlg').showModal();
+}
+async function addFiles(files){
+  for (const f of files){
+    if (!f.type.startsWith('image/')) continue;
+    try { const img = await loadImg(f); pending.push({image:toJpeg(img, 1600, .85), thumb:toJpeg(img, 400, .7)}); }
+    catch (e) { toast(e.message, 4000); }
+  }
+  renderPreviews();
+}
+function renderPreviews(){
+  $('#previews').innerHTML = pending.map((p, i) => `<div><img src="${p.thumb}" alt=""><button type="button" data-act="rm-pending" data-i="${i}">×</button></div>`).join('');
+  $('#addGo').disabled = !pending.length;
+}
+async function submitAdd(){
+  const base = {folderId:$('#addFolder').value, mine:$('#addMine').value.trim(), answer:$('#addAnswer').value.trim(), memo:$('#addMemo').value.trim()};
+  const made = [];
+  pending.forEach((p, i) => {
+    const n = {id:uid(), ...base, ...p, title:`새 오답 ${fmtDate(Date.now())}`, createdAt:Date.now() + i, reviews:0, status:'analyzing', result:null};
+    S.notes.push(n); made.push(n);
+  });
+  pending = [];
+  S.folder = base.folderId; S.noteId = made.length === 1 ? made[0].id : null; S.editing = false;
+  made.forEach(analyze);
+}
+
+/* ---------- 이벤트 ---------- */
+document.addEventListener('click', async e => {
+  const li_ = e.target.closest('#folders li');
+  const el = e.target.closest('[data-act]');
+  if (li_ && !el){ S.folder = li_.dataset.f; S.noteId = null; S.quiz = null; S.editing = false; return render(); }
+  const card = e.target.closest('[data-note]');
+  if (card && !el){ S.noteId = card.dataset.note; S.quiz = null; S.editing = false; window.scrollTo(0, 0); return render(); }
+  if (!el) return;
+  const act = el.dataset.act, note = S.notes.find(x => x.id === S.noteId);
+  switch (act){
+    case 'add': openAdd(); break;
+    case 'settings': openSettings(); break;
+    case 'filter': S.filter = el.dataset.v; render(); break;
+    case 'back': S.noteId = null; S.editing = false; render(); break;
+    case 'add-folder': {
+      const name = prompt('새 과목 폴더 이름'); if (!name?.trim()) return;
+      const f = {id:uid(), name:name.trim(), order:Date.now()}; S.folders.push(f); await dbPut('folders', f); S.folder = f.id; S.noteId = null; render(); break;
+    }
+    case 'rename-folder': {
+      e.stopPropagation(); const f = S.folders.find(x => x.id === el.dataset.id);
+      const name = prompt('폴더 이름 변경', f.name); if (!name?.trim()) return;
+      f.name = name.trim(); await dbPut('folders', f); render(); break;
+    }
+    case 'del-folder': {
+      e.stopPropagation(); const f = S.folders.find(x => x.id === el.dataset.id);
+      const inside = S.notes.filter(n => n.folderId === f.id);
+      if (!confirm(`"${f.name}" 폴더를 삭제할까요?${inside.length ? `\n폴더 안의 오답노트 ${inside.length}개도 함께 삭제되며 되돌릴 수 없습니다.` : ''}`)) return;
+      for (const n of inside) await dbDel('notes', n.id);
+      S.notes = S.notes.filter(n => n.folderId !== f.id); S.folders = S.folders.filter(x => x.id !== f.id);
+      await dbDel('folders', f.id); if (S.folder === f.id) S.folder = 'all'; S.noteId = null; render(); break;
+    }
+    case 'rm-pending': pending.splice(+el.dataset.i, 1); renderPreviews(); break;
+    case 'zoom': $('#lightbox img').src = el.src; $('#lightbox').classList.add('on'); break;
+    case 'reanalyze': if (note){ S.editing = false; analyze(note); } break;
+    case 'review': note.reviews = (note.reviews || 0) + 1; note.lastReview = Date.now(); await dbPut('notes', note); toast(`👍 복습 ${note.reviews}회째!`); render(); break;
+    case 'edit': S.editing = !S.editing; render(); break;
+    case 'print': window.print(); break;
+    case 'del-note':
+      if (!confirm('이 오답노트를 삭제할까요? 되돌릴 수 없습니다.')) return;
+      await dbDel('notes', note.id); S.notes = S.notes.filter(n => n.id !== note.id); S.noteId = null; render(); break;
+    case 'load-models': loadModels(el.dataset.p); break;
+    case 'quiz-open': openQuiz(); break;
+    case 'quiz-hint': S.quiz.hint = true; render(); break;
+    case 'quiz-reveal': S.quiz.revealed = true; render(); break;
+    case 'quiz-grade': gradeQuiz(el.dataset.ok === '1'); break;
+    case 'quiz-exit': S.quiz = null; render(); break;
+    case 'quiz-retry': startQuiz(shuffle(Object.keys(S.quiz.results).filter(id => !S.quiz.results[id])), S.quiz.useSim); break;
+    case 'sim-gen': if (note) genSimilar(note); break;
+    case 'sim-del':
+      if (!confirm('이 유사 문제를 삭제할까요?')) return;
+      note.similar.splice(+el.dataset.i, 1); await dbPut('notes', note); render(); break;
+    case 'export': exportData(); break;
+    case 'import': $('#importIn').click(); break;
+  }
+});
+
+document.addEventListener('change', async e => {
+  const note = S.notes.find(x => x.id === S.noteId);
+  if (e.target.id === 'moveFolder' && note){ note.folderId = e.target.value; await dbPut('notes', note); toast(`📁 "${folderName(note.folderId)}"(으)로 이동`); renderSidebar(); }
+  if (e.target.dataset.field && note){ note[e.target.dataset.field] = e.target.value; await dbPut('notes', note); toast('저장됨', 1200); }
+});
+
+document.addEventListener('submit', async e => {
+  if (e.target.id !== 'editForm') return;
+  e.preventDefault();
+  const note = S.notes.find(x => x.id === S.noteId), fd = new FormData(e.target), lines = k => fd.get(k).split('\n').map(s => s.trim()).filter(Boolean);
+  note.title = fd.get('title').trim() || note.title;
+  Object.assign(note.result, {title:note.title, key_tips:lines('key_tips'), correct_answer:fd.get('correct_answer'), solution:lines('solution'),
+    related_concepts:fd.get('related_concepts').split(',').map(s => s.trim()).filter(Boolean),
+    error_analysis:{mistake_type:fd.get('mistake_type'), analysis:fd.get('analysis'), prevention:fd.get('prevention')}});
+  await dbPut('notes', note); S.editing = false; toast('저장했어요'); render();
+});
+
+// 퀴즈: 입력값 기억 + 단축키 (Enter 정답 확인, 1 맞힘, 2 틀림)
+document.addEventListener('input', e => { if (e.target.id === 'qTyped' && S.quiz) S.quiz.typed = e.target.value; });
+document.addEventListener('keydown', e => {
+  const q = S.quiz;
+  if (!q || q.i >= q.ids.length || document.querySelector('dialog[open]') || $('#lightbox').classList.contains('on') || e.isComposing) return;
+  if (!q.revealed && e.key === 'Enter'){ e.preventDefault(); q.revealed = true; render(); }
+  else if (q.revealed && (e.key === '1' || e.key === '2') && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName)) gradeQuiz(e.key === '1');
+});
+['qScope', 'qMode'].forEach(id => $('#' + id).addEventListener('change', updateQInfo));
+$('#quizDlg').addEventListener('close', () => {
+  if ($('#quizDlg').returnValue !== 'go') return;
+  const mode = $('#qMode').value;
+  let pool = shuffle(quizPool($('#qScope').value, mode));
+  if (mode === 'due') pool.sort((x, y) => (x.nextReview || 0) - (y.nextReview || 0)); // 오래 밀린 문제 먼저
+  startQuiz(pool.slice(0, +$('#qCount').value).map(n => n.id), $('#qSim').checked);
+});
+
+let searchT;
+$('#search').addEventListener('input', e => { clearTimeout(searchT); searchT = setTimeout(() => { S.query = e.target.value.trim(); S.noteId = null; render(); }, 200); });
+$('#lightbox').addEventListener('click', () => $('#lightbox').classList.remove('on'));
+
+// 추가 다이얼로그: 드래그/붙여넣기
+const drop = $('#drop');
+drop.addEventListener('click', () => $('#fileIn').click());
+$('#fileIn').addEventListener('change', e => { addFiles([...e.target.files]); e.target.value = ''; });
+['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => addFiles([...e.dataTransfer.files]));
+document.addEventListener('paste', e => {
+  const files = [...(e.clipboardData?.files || [])].filter(f => f.type.startsWith('image/'));
+  if (!files.length) return;
+  if (!$('#addDlg').open){ if (document.querySelector('dialog[open]')) return; openAdd(); }
+  addFiles(files);
+});
+$('#addDlg').addEventListener('close', () => { if ($('#addDlg').returnValue === 'go' && pending.length) submitAdd(); });
+
+// 설정
+function openSettings(){
+  document.querySelectorAll('input[name=prov]').forEach(r => r.checked = r.value === CFG.provider);
+  $('#claudeKey').value = CFG.claudeKey; $('#geminiKey').value = CFG.geminiKey;
+  fillSelect($('#claudeModel'), CLAUDE_MODELS, CFG.claudeModel);
+  fillSelect($('#geminiModel'), GEMINI_MODELS, CFG.geminiModel);
+  $('#setDlg').showModal();
+}
+$('#setDlg').addEventListener('close', () => {
+  if ($('#setDlg').returnValue !== 'save'){ CFG = loadCfg(); return; }
+  CFG.provider = document.querySelector('input[name=prov]:checked')?.value || 'claude';
+  CFG.claudeKey = $('#claudeKey').value.trim(); CFG.geminiKey = $('#geminiKey').value.trim();
+  CFG.claudeModel = $('#claudeModel').value; CFG.geminiModel = $('#geminiModel').value;
+  saveCfg(); toast(`저장했어요 — ${CFG.provider === 'claude' ? 'Claude' : 'Gemini'} 사용`); render();
+});
+
+// 백업
+async function exportData(){
+  const data = {app:'ai-wrongnote', version:1, exportedAt:new Date().toISOString(), folders:S.folders, notes:S.notes};
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], {type:'application/json'}));
+  a.download = `오답노트_백업_${new Date().toISOString().slice(0, 10)}.json`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+$('#importIn').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (d.app !== 'ai-wrongnote') throw new Error('오답노트 백업 파일이 아닙니다');
+    for (const x of d.folders) await dbPut('folders', x);
+    for (const x of d.notes) await dbPut('notes', x);
+    S.folders = await dbAll('folders'); S.notes = await dbAll('notes');
+    toast(`불러오기 완료 — 폴더 ${d.folders.length}개, 노트 ${d.notes.length}개`); render();
+  } catch (err) { toast('❌ ' + err.message, 4000); }
+});
+
+/* ---------- 시작 ---------- */
+(async () => {
+  db = await openDB();
+  S.folders = await dbAll('folders'); S.notes = await dbAll('notes');
+  if (!S.folders.length){
+    const t = Date.now();
+    S.folders = ['국어', '수학', '영어', '과학', '사회'].map((name, i) => ({id:uid() + i, name, order:t + i}));
+    for (const f of S.folders) await dbPut('folders', f);
+  }
+  // 새로고침 등으로 중단된 분석은 실패로 표시
+  for (const n of S.notes) if (n.status === 'analyzing'){ n.status = 'error'; n.error = '분석이 중단되었습니다. 다시 시도해 주세요.'; await dbPut('notes', n); }
+  render();
+  window.addEventListener('load', () => renderMath($('#analysis')));
+})();
+</script>
+</body>
+</html>
