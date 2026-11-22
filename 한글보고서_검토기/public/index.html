@@ -62,7 +62,7 @@
 <body>
 <header>
   <h1>한글 보고서 검토기</h1>
-  <p>한글(.hwp) 파일을 올리면 자동으로 텍스트를 추출합니다. 삭제·중점을 체크하면 오른쪽에 바로 반영됩니다.</p>
+  <p>한글(.hwp) 파일을 올리면 자동으로 내용을 추출합니다. 삭제·중점을 체크하고 확정을 누르면 결과를 볼 수 있습니다.</p>
 </header>
 <main>
   <div id="drop" tabindex="0">
@@ -608,15 +608,21 @@ function buildRows(){
     box.append(r);
   });
 }
+function finalNums(){
+  let num=0;
+  return items.map(it=>{ if(it.fixed){ if(!(it.ln>0)) num=0; return null; } if(it.del) return null; num++; return num; });
+}
+function shownText(it,num,final){ return (final&&num!=null)?it.text.replace(/^\d+/,String(num)):it.text; }
 function render(){
   items.forEach((it,i)=>{const r=$('r'+i); if(!r)return; r.classList.toggle('isdel',it.del); r.classList.toggle('isstar',it.star);});
   const pv=$('preview'); pv.textContent='';
-  const list=mode==='final'?items.filter(i=>!i.del):items;
+  const nums=finalNums(), fin=mode==='final';
+  const list=(fin?items.filter(i=>!i.del):items).map(it=>({it,n:nums[items.indexOf(it)]}));
   if(!list.length){const d=document.createElement('div');d.className='empty';d.textContent='표시할 내용이 없습니다.';pv.append(d);}
-  list.forEach(it=>{
+  list.forEach(({it,n})=>{
     const d=document.createElement('div'); d.className='ln'+(it.del?' del':'')+(it.star?' star':'')+(it.fixed?' head':'');
     if(it.star){const s=document.createElement('span');s.className='star';s.textContent='◆ ';d.append(s);}
-    d.append(document.createTextNode(it.text)); pv.append(d);
+    d.append(document.createTextNode(shownText(it,n,fin))); pv.append(d);
   });
   const nd=items.filter(i=>i.del).length, ns=items.filter(i=>i.star).length;
   save();
@@ -628,11 +634,13 @@ function render(){
 }
 const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 function textOut(final){
-  return items.filter(i=>!final||!i.del).map(i=>(i.star?'◆ ':'')+i.text).join('\n');
+  const nums=finalNums();
+  return items.map((i,k)=>[i,nums[k]]).filter(([i])=>!final||!i.del).map(([i,n])=>(i.star?'◆ ':'')+shownText(i,n,final)).join('\n');
 }
 function htmlOut(final){
-  return items.filter(i=>!final||!i.del).map(i=>{
-    let h=esc(i.text); if(i.del) h='<s style="color:#e02020;text-decoration-color:#e02020">'+h+'</s>'; if(i.star) h='<b>◆ '+h+'</b>';
+  const nums=finalNums();
+  return items.map((i,k)=>[i,nums[k]]).filter(([i])=>!final||!i.del).map(([i,n])=>{
+    let h=esc(shownText(i,n,final)); if(i.del) h='<s style="color:#e02020;text-decoration-color:#e02020">'+h+'</s>'; if(i.star) h='<b>◆ '+h+'</b>';
     return '<p style="margin:0">'+h+'</p>';
   }).join('');
 }
