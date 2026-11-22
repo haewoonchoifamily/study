@@ -19,6 +19,12 @@
   #msg{margin:10px 0 0;font-size:14px}
   #msg.err{color:var(--del)}
   #work{display:none;margin-top:16px;max-width:900px;margin-left:auto;margin-right:auto}
+  #summary{display:flex;gap:10px;margin-bottom:12px;position:sticky;top:0;z-index:5;padding:8px 0;background:var(--bg)}
+  .chip{flex:1;display:flex;align-items:baseline;justify-content:center;gap:8px;padding:10px 12px;border-radius:12px;background:#fff;border:1px solid var(--line);font-size:14px}
+  .chip b{font-size:24px;line-height:1}
+  .chip.rp{border-color:#9db7dd}.chip.rp b{color:var(--accent)}
+  .chip.dl{border-color:#e8b4ae}.chip.dl b{color:var(--del)}
+  .chip.st{border-color:#ecd49a}.chip.st b{color:var(--star)}
   .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
   .ph{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line);background:#fafbfc}
   .ph h2{margin:0;font-size:15px}
@@ -67,6 +73,11 @@
   <div id="msg"></div>
 
   <section id="work">
+    <div id="summary">
+      <div class="chip rp"><span>보고</span><b id="cRep">0</b></div>
+      <div class="chip dl"><span>삭제</span><b id="cDel">0</b></div>
+      <div class="chip st"><span>◆ 중점</span><b id="cStar">0</b></div>
+    </div>
     <div class="panel">
       <div class="ph">
         <div><h2>삭제·중점 체크</h2><div class="sub" id="fname"></div></div>
@@ -609,6 +620,8 @@ function render(){
   });
   const nd=items.filter(i=>i.del).length, ns=items.filter(i=>i.star).length;
   save();
+  { const cs=items.filter(i=>!i.fixed), nD=cs.filter(i=>i.del).length, nS=cs.filter(i=>i.star).length;
+    $('cRep').textContent=cs.length-nD; $('cDel').textContent=nD; $('cStar').textContent=nS; }
   $('statR').textContent=`삭제 ${items.filter(i=>i.del).length} · 중점 ${items.filter(i=>i.star).length}`;
   $('stat').textContent=`체크 대상 ${items.filter(i=>!i.fixed).length}줄 · 삭제 ${nd} · 중점 ${ns}`;
   $('tabMark').classList.toggle('on',mode==='mark'); $('tabFinal').classList.toggle('on',mode==='final');
