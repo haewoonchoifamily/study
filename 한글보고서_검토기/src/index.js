@@ -1,5 +1,5 @@
 // 한글 보고서 검토기 — 공용 저장소 (Durable Object 1개에 현재 문서 1건 저장)
-const MAX_ITEMS = 3000, MAX_TEXT = 3000;
+const MAX_ITEMS = 3000, MAX_TEXT = 3000, CHUNK = 100 * 1024, MAX_FILE = 12 * 1024 * 1024;
 
 export class Store {
   constructor(state) {
@@ -10,6 +10,12 @@ export class Store {
     });
   }
   async save() { await this.state.storage.put('doc', this.doc); }
+  async clearFile() {
+    const n = (this.doc && this.doc.fileChunks) || 0;
+    const keys = [];
+    for (let i = 0; i < n; i++) keys.push('f' + i);
+    for (let i = 0; i < keys.length; i += 100) await this.state.storage.delete(keys.slice(i, i + 100));
+  }
   async fetch(req) {
     const url = new URL(req.url);
     const out = (o, s = 200) => new Response(JSON.stringify(o), {
@@ -17,6 +23,39 @@ export class Store {
       headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
     });
     const m = req.method;
+    if (url.pathname === '/api/file') {
+      const id = url.searchParams.get('doc');
+      if (!this.doc || this.doc.docId !== id) return out({ error: 'doc' }, 409);
+      if (m === 'PUT') {
+        const buf = await req.arrayBuffer();
+        if (!buf.byteLength || buf.byteLength > MAX_FILE) return out({ error: 'size' }, 413);
+        await this.clearFile();
+        const n = Math.ceil(buf.byteLength / CHUNK);
+        for (let i = 0; i < n; i += 100) {
+          const obj = {};
+          for (let j = i; j < Math.min(n, i + 100); j++) obj['f' + j] = buf.slice(j * CHUNK, (j + 1) * CHUNK);
+          await this.state.storage.put(obj);
+        }
+        this.doc.hasFile = true; this.doc.fileChunks = n; this.doc.rev += 1; this.doc.updatedAt = Date.now();
+        await this.save();
+        return out({ doc: this.doc });
+      }
+      if (m === 'GET') {
+        const n = this.doc.fileChunks || 0;
+        if (!this.doc.hasFile || !n) return out({ error: 'nofile' }, 404);
+        const parts = [];
+        for (let i = 0; i < n; i += 100) {
+          const keys = [];
+          for (let j = i; j < Math.min(n, i + 100); j++) keys.push('f' + j);
+          const got = await this.state.storage.get(keys);
+          for (const k of keys) parts.push(new Uint8Array(got.get(k)));
+        }
+        const total = parts.reduce((a, p) => a + p.length, 0), all = new Uint8Array(total);
+        let o = 0; for (const p of parts) { all.set(p, o); o += p.length; }
+        return new Response(all, { headers: { 'content-type': 'application/octet-stream', 'cache-control': 'no-store' } });
+      }
+      return out({ error: 'method' }, 405);
+    }
     if (m === 'GET') {
       const rev = Number(url.searchParams.get('rev')), id = url.searchParams.get('doc');
       if (this.doc && rev === this.doc.rev && id === this.doc.docId) return out({ unchanged: true });
@@ -30,7 +69,10 @@ export class Store {
       const clean = items.map(i => ({
         text: String(i.text ?? '').slice(0, MAX_TEXT),
         fixed: !!i.fixed, del: false, star: false,
+        sec: Number.isFinite(i.sec) ? i.sec : undefined, ph: Number.isFinite(i.ph) ? i.ph : undefined,
+        ln: Number.isFinite(i.ln) ? i.ln : undefined, nl: Number.isFinite(i.nl) ? i.nl : undefined,
       }));
+      await this.clearFile();
       this.doc = {
         docId: crypto.randomUUID(), rev: 1,
         fileName: String(body.fileName ?? '').slice(0, 200),
@@ -54,6 +96,7 @@ export class Store {
       return out({ doc: this.doc });
     }
     if (m === 'DELETE') {
+      await this.clearFile();
       this.doc = null;
       await this.state.storage.delete('doc');
       return out({ doc: null });
@@ -65,7 +108,7 @@ export class Store {
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
-    if (url.pathname === '/api/state') {
+    if (url.pathname === '/api/state' || url.pathname === '/api/file') {
       return env.STORE.get(env.STORE.idFromName('main')).fetch(req);
     }
     return env.ASSETS.fetch(req);

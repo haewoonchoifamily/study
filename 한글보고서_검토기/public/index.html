@@ -92,9 +92,12 @@
         </div>
       </div>
       <div id="preview"></div>
+      <div id="exportMsg" class="stat" style="padding:0 18px 10px"></div>
       <div class="ph" style="border-top:1px solid var(--line);border-bottom:none">
-        <span class="stat">삭제 = 취소선 · 중점 = 앞에 ◆</span>
+        <span class="stat">삭제 = 빨간 취소선 · 중점 = 앞에 ◆</span>
         <div class="actions">
+          <label class="stat" style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="optStar" checked>◆ 넣기</label>
+          <button class="btn primary" id="exportHwp">한글(.hwp)로 저장</button>
           <button class="btn primary" id="copyFinal">최종본 복사</button>
           <button class="btn" id="copyMark">표시본 복사</button>
         </div>
@@ -228,16 +231,16 @@ function readCFB(buf){
     for(const s of chain(start,miniFat)){const n=Math.min(ms,size-p);if(n<=0)break;out.set(miniStream.subarray(s*ms,s*ms+n),p);p+=n;}
     return out;
   };
-  const NO=0xFFFFFFFF, files={};
+  const NO=0xFFFFFFFF, files={}, tree=[];
   const walk=(idx,path)=>{
     if(idx===NO||idx>=ents.length) return;
     const e=ents[idx];
     walk(e.left,path); walk(e.right,path);
-    if(e.type===2){ files[path+e.name]=()=> e.size<cutoff?readMini(e.start,e.size):readBig(e.start,e.size); }
-    else if(e.type===1){ walk(e.child,path+e.name+'/'); }
+    if(e.type===2){ files[path+e.name]=()=> e.size<cutoff?readMini(e.start,e.size):readBig(e.start,e.size); tree.push({type:2,name:e.name,path:path+e.name,parent:path}); }
+    else if(e.type===1){ tree.push({type:1,name:e.name,path:path+e.name+'/',parent:path}); walk(e.child,path+e.name+'/'); }
   };
   walk(root.child,'');
-  return files;
+  return {files,tree,rootClsid:dirRaw.slice(80,96)};
 }
 function parseParaText(body){
   const dv=new DataView(body.buffer,body.byteOffset,body.byteLength);
@@ -258,29 +261,221 @@ function parseParaText(body){
   lines.push(cur);
   return lines;
 }
-async function extractHWP(buf){
-  const files=readCFB(buf);
+function parseRecords(data){
+  const dv=new DataView(data.buffer,data.byteOffset,data.byteLength), recs=[];
+  for(let i=0;i+4<=data.length;){
+    const h=dv.getUint32(i,true); i+=4;
+    const tag=h&0x3ff, lvl=(h>>>10)&0x3ff; let size=h>>>20;
+    if(size===0xfff){size=dv.getUint32(i,true);i+=4;}
+    recs.push({tag,lvl,body:data.subarray(i,i+size)}); i+=size;
+  }
+  return recs;
+}
+function serializeRecords(recs){
+  let total=0; for(const r of recs) total+=4+(r.body.length>=0xfff?4:0)+r.body.length;
+  const out=new Uint8Array(total), dv=new DataView(out.buffer); let p=0;
+  for(const r of recs){
+    const big=r.body.length>=0xfff;
+    dv.setUint32(p,((r.tag&0x3ff)|((r.lvl&0x3ff)<<10)|((big?0xfff:r.body.length)<<20))>>>0,true); p+=4;
+    if(big){dv.setUint32(p,r.body.length,true);p+=4;}
+    out.set(r.body,p); p+=r.body.length;
+  }
+  return out;
+}
+function checkHeader(files){
   const hdr=files['FileHeader']();
   const flags=new DataView(hdr.buffer,hdr.byteOffset,hdr.byteLength).getUint32(36,true);
   if(flags&2) throw new Error('암호가 설정된 문서는 읽을 수 없습니다. 암호를 해제한 뒤 올려주세요.');
   if(flags&4) throw new Error('배포용 문서는 읽을 수 없습니다. 일반 문서로 저장한 뒤 올려주세요.');
-  const compressed=!!(flags&1);
-  const secs=Object.keys(files).filter(k=>/^BodyText\/Section\d+$/.test(k)).sort((a,b)=>parseInt(a.split('Section')[1])-parseInt(b.split('Section')[1]));
+  return !!(flags&1);
+}
+function sectionNames(files){
+  return Object.keys(files).filter(k=>/^BodyText\/Section\d+$/.test(k)).sort((a,b)=>parseInt(a.split('Section')[1])-parseInt(b.split('Section')[1]));
+}
+async function extractHWP(buf){
+  const {files}=readCFB(buf);
+  const compressed=checkHeader(files);
+  const secs=sectionNames(files);
   if(!secs.length) throw new Error('본문을 찾지 못했습니다.');
   const out=[];
-  for(const k of secs){
-    let data=files[k]();
+  for(let si=0;si<secs.length;si++){
+    let data=files[secs[si]]();
     if(compressed) data=await inflateRaw(data);
-    const dv=new DataView(data.buffer,data.byteOffset,data.byteLength);
-    for(let i=0;i+4<=data.length;){
-      const h=dv.getUint32(i,true);i+=4;
-      const tag=h&0x3ff; let size=(h>>>20)&0xfff;
-      if(size===0xfff){size=dv.getUint32(i,true);i+=4;}
-      if(tag===67) out.push(...parseParaText(data.subarray(i,i+size)));
-      i+=size;
+    let ph=-1;
+    for(const r of parseRecords(data)){
+      if(r.tag===66) ph++;
+      else if(r.tag===67){
+        const lines=parseParaText(r.body);
+        lines.forEach((text,ln)=>out.push({text,sec:si,ph,ln,nl:lines.length}));
+      }
     }
   }
   return out;
+}
+
+/* ---- 한글(.hwp) 저장: 원본 본문을 고쳐서 다시 묶는다 ---- */
+function deflateStored(u8){
+  const n=Math.max(1,Math.ceil(u8.length/65535)), out=new Uint8Array(u8.length+n*5); let p=0;
+  for(let i=0;i<n;i++){
+    const chunk=u8.subarray(i*65535,Math.min(u8.length,(i+1)*65535));
+    out[p++]=(i===n-1)?1:0; out[p++]=chunk.length&255; out[p++]=chunk.length>>8; out[p++]=(~chunk.length)&255; out[p++]=((~chunk.length)>>8)&255;
+    out.set(chunk,p); p+=chunk.length;
+  }
+  return out;
+}
+function listCounts(recs){
+  const m=new Map();
+  for(let i=0;i<recs.length;i++){
+    const r=recs[i]; if(r.tag!==72) continue;
+    let c=0;
+    for(let j=i+1;j<recs.length;j++){
+      const x=recs[j];
+      if(x.lvl<r.lvl||(x.lvl===r.lvl&&x.tag===72)) break;
+      if(x.tag===66&&x.lvl===r.lvl) c++;
+    }
+    m.set(r,c);
+  }
+  return m;
+}
+function editPrefix(body,newPrefix){
+  const dv=new DataView(body.buffer,body.byteOffset,body.byteLength);
+  let k=0; while(k*2+1<body.length){const c=dv.getUint16(k*2,true); if(c>=0x30&&c<=0x39) k++; else break;}
+  if(k===0) return null;
+  const m=newPrefix.length, out=new Uint8Array(body.length+(m-k)*2), od=new DataView(out.buffer);
+  for(let i=0;i<m;i++) od.setUint16(i*2,newPrefix.charCodeAt(i),true);
+  out.set(body.subarray(k*2),m*2);
+  return {body:out,k,delta:m-k};
+}
+function shiftU32(body,stride,fields,k,delta){
+  const b=body.slice(), dv=new DataView(b.buffer);
+  for(let o=0;o+stride<=b.length;o+=stride) for(const f of fields){
+    const v=dv.getUint32(o+f,true); if(v>=k) dv.setUint32(o+f,v+delta,true);
+  }
+  return b;
+}
+function transformSection(recs,delPh,edits){
+  const out=[]; let ph=-1, removed=0, unsafe=0;
+  for(let i=0;i<recs.length;){
+    const r=recs[i];
+    if(r.tag!==66){out.push(r);i++;continue;}
+    ph++;
+    let e=i+1; while(e<recs.length&&recs[e].lvl>r.lvl) e++;
+    const span=recs.slice(i,e);
+    const safe=span.slice(1).every(x=>x.tag===67||x.tag===68||x.tag===69||x.tag===70);
+    const wantDel=delPh.has(ph), wantEdit=edits.has(ph);
+    if(!safe){ if(wantDel||wantEdit) unsafe++; out.push(r); i++; continue; }
+    if(wantDel){ removed++; i=e; continue; }
+    if(wantEdit){
+      const t=span.find(x=>x.tag===67), ed=t?editPrefix(t.body,edits.get(ph)):null;
+      if(ed){
+        for(const x of span){
+          if(x===r){ const b=x.body.slice(), dv=new DataView(b.buffer); const v=dv.getUint32(0,true); dv.setUint32(0,(((v&0x7fffffff)+ed.delta)|(v&0x80000000))>>>0,true); out.push({tag:x.tag,lvl:x.lvl,body:b}); }
+          else if(x.tag===67) out.push({tag:x.tag,lvl:x.lvl,body:ed.body});
+          else if(x.tag===68) out.push({tag:x.tag,lvl:x.lvl,body:shiftU32(x.body,8,[0],ed.k,ed.delta)});
+          else if(x.tag===69) out.push({tag:x.tag,lvl:x.lvl,body:shiftU32(x.body,36,[0],ed.k,ed.delta)});
+          else if(x.tag===70) out.push({tag:x.tag,lvl:x.lvl,body:shiftU32(x.body,12,[0,4],ed.k,ed.delta)});
+          else out.push(x);
+        }
+        i=e; continue;
+      }
+    }
+    out.push(r); i++;
+  }
+  return {recs:out,removed,unsafe};
+}
+function buildPlan(items,withStar){
+  const paras=new Map(), del=new Set(), edits=new Map(); let partial=0, num=0;
+  items.forEach(it=>{ if(it.ph==null) return; const k=it.sec+':'+it.ph; if(!paras.has(k)) paras.set(k,[]); paras.get(k).push(it); });
+  paras.forEach((list,k)=>{ const d=list.filter(i=>i.del).length; if(d===list.length) del.add(k); else if(d>0) partial+=d; });
+  items.forEach(it=>{
+    if(it.fixed){ if(!(it.ln>0)) num=0; return; }
+    if(it.del) return;
+    num++;
+    if(it.ph==null||it.ln!==0) return;
+    const m=/^(\d+)/.exec(it.text); if(!m) return;
+    const prefix=(withStar&&it.star?'◆ ':'')+num;
+    if(prefix!==m[1]) edits.set(it.sec+':'+it.ph,prefix);
+  });
+  return {del,edits,partial};
+}
+function writeCFB(tree,rootClsid,getBytes){
+  const SS=512,MS=64,CUT=4096,END=0xFFFFFFFE,FREE=0xFFFFFFFF,FATSEC=0xFFFFFFFD;
+  const streams=tree.filter(n=>n.type===2).map(n=>({n,data:getBytes(n.path)}));
+  let sec=0;
+  const bigs=streams.filter(s=>s.data.length>=CUT); bigs.forEach(s=>{s.start=sec;s.cnt=Math.ceil(s.data.length/SS);sec+=s.cnt;});
+  const smalls=streams.filter(s=>s.data.length>0&&s.data.length<CUT); let mini=0; smalls.forEach(s=>{s.start=mini;s.mcnt=Math.ceil(s.data.length/MS);mini+=s.mcnt;});
+  streams.filter(s=>s.data.length===0).forEach(s=>{s.start=END;});
+  const miniLen=mini*MS, miniSecs=Math.ceil(miniLen/SS), miniStart=miniSecs?sec:END; sec+=miniSecs;
+  const miniFatSecs=Math.ceil(mini*4/SS), miniFatStart=miniFatSecs?sec:END; sec+=miniFatSecs;
+  const nEnt=tree.length+1, dirSecs=Math.ceil(nEnt*128/SS), dirStart=sec; sec+=dirSecs;
+  let fatSecs=1; while(fatSecs*128<sec+fatSecs) fatSecs++;
+  if(fatSecs>109) throw new Error('파일이 너무 커서 저장할 수 없습니다.');
+  const fatStart=sec, total=sec+fatSecs;
+  const buf=new Uint8Array(SS+total*SS), dv=new DataView(buf.buffer);
+  const put=(start,data)=>buf.set(data,SS+start*SS);
+  bigs.forEach(s=>put(s.start,s.data));
+  if(miniSecs){const m=new Uint8Array(miniSecs*SS); smalls.forEach(s=>m.set(s.data,s.start*MS)); put(miniStart,m);}
+  const fat=new Uint32Array(fatSecs*128).fill(FREE);
+  const chain=(st,cnt)=>{for(let i=0;i<cnt;i++)fat[st+i]=(i===cnt-1)?END:st+i+1;};
+  bigs.forEach(s=>chain(s.start,s.cnt)); if(miniSecs)chain(miniStart,miniSecs); if(miniFatSecs)chain(miniFatStart,miniFatSecs); chain(dirStart,dirSecs);
+  for(let i=0;i<fatSecs;i++) fat[fatStart+i]=FATSEC;
+  put(fatStart,new Uint8Array(fat.buffer));
+  if(miniFatSecs){const mf=new Uint32Array(miniFatSecs*128).fill(FREE); smalls.forEach(s=>{for(let i=0;i<s.mcnt;i++)mf[s.start+i]=(i===s.mcnt-1)?END:s.start+i+1;}); put(miniFatStart,new Uint8Array(mf.buffer));}
+  // 디렉터리
+  const nodes=[{root:true,name:'Root Entry',path:'',type:5}].concat(tree.map(n=>({...n})));
+  nodes.forEach((n,i)=>n.idx=i);
+  const cmp=(a,b)=>a.name.length-b.name.length||(a.name.toUpperCase()<b.name.toUpperCase()?-1:a.name.toUpperCase()>b.name.toUpperCase()?1:0);
+  const build=list=>{
+    if(!list.length) return FREE;
+    list.sort(cmp); const mid=list.length>>1, n=list[mid];
+    n.left=build(list.slice(0,mid)); n.right=build(list.slice(mid+1)); return n.idx;
+  };
+  nodes.forEach(n=>{ if(n.root||n.type===1) n.child=build(nodes.filter(c=>!c.root&&c.parent===n.path)); });
+  const dOff=SS+dirStart*SS;
+  for(let i=0;i<dirSecs*4;i++){ const o=dOff+i*128; dv.setUint32(o+68,FREE,true); dv.setUint32(o+72,FREE,true); dv.setUint32(o+76,FREE,true); }
+  nodes.forEach((n,i)=>{
+    const o=dOff+i*128;
+    for(let k=0;k<n.name.length;k++) dv.setUint16(o+k*2,n.name.charCodeAt(k),true);
+    dv.setUint16(o+64,(n.name.length+1)*2,true);
+    buf[o+66]=n.root?5:n.type; buf[o+67]=1;
+    dv.setUint32(o+68,n.left==null?FREE:n.left,true); dv.setUint32(o+72,n.right==null?FREE:n.right,true); dv.setUint32(o+76,n.child==null?FREE:n.child,true);
+    if(n.root){ buf.set(rootClsid,o+80); dv.setUint32(o+116,miniStart,true); dv.setUint32(o+120,miniLen,true); }
+    else if(n.type===2){ const s=streams.find(x=>x.n.path===n.path); dv.setUint32(o+116,s.start,true); dv.setUint32(o+120,s.data.length,true); }
+  });
+  const sig=[0xD0,0xCF,0x11,0xE0,0xA1,0xB1,0x1A,0xE1]; sig.forEach((v,i)=>buf[i]=v);
+  dv.setUint16(24,0x3E,true); dv.setUint16(26,3,true); dv.setUint16(28,0xFFFE,true); dv.setUint16(30,9,true); dv.setUint16(32,6,true);
+  dv.setUint32(44,fatSecs,true); dv.setUint32(48,dirStart,true); dv.setUint32(56,CUT,true);
+  dv.setUint32(60,miniFatStart,true); dv.setUint32(64,miniFatSecs,true); dv.setUint32(68,END,true); dv.setUint32(72,0,true);
+  for(let i=0;i<109;i++) dv.setUint32(76+i*4,i<fatSecs?fatStart+i:FREE,true);
+  return buf;
+}
+function utf16le(str){const b=new Uint8Array(str.length*2),dv=new DataView(b.buffer);for(let i=0;i<str.length;i++)dv.setUint16(i*2,str.charCodeAt(i),true);return b;}
+async function exportHWP(orig,items,opts){
+  const {files,tree,rootClsid}=readCFB(orig);
+  const compressed=checkHeader(files);
+  const secs=sectionNames(files);
+  const plan=buildPlan(items,!!(opts&&opts.star));
+  const replaced={}; let removed=0, unsafe=0;
+  for(let si=0;si<secs.length;si++){
+    let data=files[secs[si]](); if(compressed) data=inflateRawSync(data);
+    const recs=parseRecords(data), before=listCounts(recs);
+    const delPh=new Set(), edits=new Map();
+    plan.del.forEach(k=>{const [s,p]=k.split(':').map(Number); if(s===si) delPh.add(p);});
+    plan.edits.forEach((v,k)=>{const [s,p]=k.split(':').map(Number); if(s===si) edits.set(p,v);});
+    const t=transformSection(recs,delPh,edits), after=listCounts(t.recs);
+    before.forEach((c,r)=>{
+      const dv=new DataView(r.body.buffer,r.body.byteOffset,r.body.byteLength);
+      if(after.has(r)&&dv.getUint16(0,true)===c&&after.get(r)!==c){ const b=r.body.slice(); new DataView(b.buffer).setUint16(0,after.get(r),true); r.body=b; }
+    });
+    let outData=serializeRecords(t.recs); if(compressed) outData=deflateStored(outData);
+    replaced[secs[si]]=outData; removed+=t.removed; unsafe+=t.unsafe;
+  }
+  if(files['PrvText']){
+    const txt=items.filter(i=>!i.del).map(i=>(opts&&opts.star&&i.star?'◆ ':'')+i.text).join('\r\n').slice(0,1024);
+    replaced['PrvText']=utf16le(txt);
+  }
+  const bytes=writeCFB(tree,rootClsid,p=>replaced[p]||files[p]());
+  return {bytes,removed,unsafe,partial:plan.partial};
 }
 /* HWPX (zip + xml) */
 async function extractHWPX(buf){
@@ -315,6 +510,7 @@ async function extractHWPX(buf){
 async function extractFile(file){
   const buf=await readFileBuf(file);
   const isZip=buf[0]===0x50&&buf[1]===0x4b;
+  pendingOrig=isZip?null:buf;
   return isZip?extractHWPX(buf):extractHWP(buf);
 }
 
@@ -326,7 +522,7 @@ const KEY='hwp-review-state-v1';
 function save(){if(server)return;try{localStorage.setItem(KEY,JSON.stringify({items,stage,fileName,savedAt:Date.now()}));}catch(e){}}
 function clearSaved(){try{localStorage.removeItem(KEY);}catch(e){}}
 /* ---- 공용 서버 저장 (실패 시 이 브라우저에만 저장) ---- */
-let server=false, docId='', rev=0, pending=0, chain=Promise.resolve();
+let hasFile=false, server=false, docId='', rev=0, pending=0, chain=Promise.resolve();
 async function api(method,body,qs){
   const r=await fetch('/api/state'+(qs||''),{method,headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined,cache:'no-store'});
   if(!r.ok) throw new Error('HTTP '+r.status);
@@ -339,7 +535,7 @@ function patch(ops,stg){
   chain=chain.then(()=>api('PATCH',{docId,ops,stage:stg})).then(r=>{pending--;if(pending===0&&r.doc)applyRemote(r.doc);else if(r.doc){rev=r.doc.rev;}}).catch(()=>{pending--;setMsg('저장하지 못했습니다. 연결을 확인해 주세요.',true);});
 }
 function showEmpty(){
-  items=[];docId='';rev=0;stage='edit';fileName='';
+  items=[];docId='';rev=0;stage='edit';fileName='';origBuf=null;origKey='';hasFile=false;
   $('work').style.display='none';$('drop').style.display='';$('rows').textContent='';$('preview').textContent='';
   ['newFile','newFile2'].forEach(id=>$(id).textContent='새 파일 올리기');
 }
@@ -347,7 +543,7 @@ function whenText(t){return t?new Date(t).toLocaleString('ko-KR'):'';}
 function applyRemote(doc){
   if(!doc){ if(items.length) showEmpty(); rev=0; docId=''; return; }
   const isNew=doc.docId!==docId;
-  docId=doc.docId; rev=doc.rev; fileName=doc.fileName;
+  docId=doc.docId; rev=doc.rev; fileName=doc.fileName; hasFile=!!doc.hasFile;
   if(isNew||items.length!==doc.items.length){
     items=doc.items; $('drop').style.display='none'; $('work').style.display='block'; buildRows();
   } else {
@@ -364,14 +560,21 @@ async function poll(){
 }
 
 function setMsg(t,err){const m=$('msg');m.textContent=t||'';m.className=err?'err':'';}
+let origBuf=null, origKey='', pendingOrig=null;
 function loadLines(lines,name){
-  const list=lines.map(s=>s.replace(/\s+$/,'')).filter(s=>s.trim()!=='').map(text=>({text,del:false,star:false,fixed:!/^\d+\.\s.*[:：]/.test(text)}));
+  const list=lines.map(x=>typeof x==='string'?{text:x}:x).map(x=>({...x,text:x.text.replace(/\s+$/,'')})).filter(x=>x.text.trim()!=='').map(x=>({text:x.text,sec:x.sec,ph:x.ph,ln:x.ln,nl:x.nl,del:false,star:false,fixed:!/^\d+\.\s.*[:：]/.test(x.text)}));
   if(!list.length){setMsg('추출된 텍스트가 없습니다.',true);return;}
+  const orig=pendingOrig; pendingOrig=null;
   if(server){
     setMsg('저장 중…');
-    api('POST',{fileName:name||'',items:list}).then(r=>{docId='';applyRemote(r.doc);}).catch(()=>setMsg('저장하지 못했습니다. 연결을 확인해 주세요.',true));
+    api('POST',{fileName:name||'',items:list}).then(async r=>{
+      docId='';applyRemote(r.doc);
+      origBuf=orig; origKey=r.doc.docId;
+      if(orig){ try{ const pr=await fetch('/api/file?doc='+r.doc.docId,{method:'PUT',body:orig}); if(!pr.ok) throw 0; const j=await pr.json(); rev=j.doc.rev; hasFile=true; }catch(e){ setMsg('원본 파일을 서버에 저장하지 못했습니다. 한글 파일 저장은 이 컴퓨터에서만 가능합니다.',true);} }
+    }).catch(()=>setMsg('저장하지 못했습니다. 연결을 확인해 주세요.',true));
     return;
   }
+  origBuf=orig; origKey='local';
   items=list; fileName=name||''; stage='edit'; $('drop').style.display='none';
   $('fname').textContent=name?`${name} · ${items.length}줄`:`${items.length}줄`;
   $('work').style.display='block'; $('resultPanel').style.display='none'; document.querySelector('#work > .panel').style.display='';
@@ -488,6 +691,35 @@ function localRestore(){
   server=false; localRestore();
   if(!items.length) setMsg('ⓘ 공용 서버에 연결되지 않아 이 브라우저에만 저장됩니다.');
 })();
+async function getOrig(){
+  if(origBuf&&(origKey==='local'||origKey===docId)) return origBuf;
+  if(server&&hasFile&&docId){
+    const r=await fetch('/api/file?doc='+docId,{cache:'no-store'});
+    if(r.ok){ origBuf=new Uint8Array(await r.arrayBuffer()); origKey=docId; return origBuf; }
+  }
+  return null;
+}
+function downloadBytes(bytes,name){
+  const blob=new Blob([bytes],{type:'application/octet-stream'}), a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=name; document.body.append(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);
+}
+$('exportHwp').onclick=async()=>{
+  const msg=$('exportMsg'), btn=$('exportHwp'); msg.style.color=''; msg.textContent='';
+  try{
+    if(!items.some(i=>i.ph!=null)) throw new Error('이 문서는 .hwp 파일에서 올린 것이 아니어서 한글 파일로 저장할 수 없습니다. 「새 파일 올리기」로 .hwp 파일을 올려 주세요.');
+    btn.disabled=true; btn.textContent='만드는 중…';
+    const orig=await getOrig();
+    if(!orig) throw new Error('원본 한글 파일을 찾을 수 없습니다. 「새 파일 올리기」로 다시 올려 주세요.');
+    const r=await exportHWP(orig,items,{star:$('optStar').checked});
+    const base=(fileName||'보고서').replace(/\.hwp$/i,'');
+    downloadBytes(r.bytes,base+'_최종.hwp');
+    let t=`저장했습니다: ${base}_최종.hwp (삭제 ${r.removed}줄 제거, 번호 다시 매김)`;
+    if(r.partial||r.unsafe) t+=` · 한 문단 안의 줄이거나 특수 문단이라 지우지 못한 곳이 ${r.partial+r.unsafe}곳 있습니다.`;
+    msg.textContent=t;
+  }catch(e){ msg.style.color='#c0392b'; msg.textContent='저장하지 못했습니다: '+e.message; }
+  finally{ btn.disabled=false; btn.textContent='한글(.hwp)로 저장'; }
+};
 $('pasteGo').onclick=()=>loadLines($('paste').value.split(/\r?\n/),'붙여넣은 텍스트');
 </script>
 </body>
