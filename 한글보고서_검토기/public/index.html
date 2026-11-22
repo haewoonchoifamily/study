@@ -323,14 +323,56 @@ const $=id=>document.getElementById(id);
 let items=[];   // {text, del, star}
 let mode='mark', stage='edit', fileName='';
 const KEY='hwp-review-state-v1';
-function save(){try{localStorage.setItem(KEY,JSON.stringify({items,stage,fileName,savedAt:Date.now()}));}catch(e){}}
+function save(){if(server)return;try{localStorage.setItem(KEY,JSON.stringify({items,stage,fileName,savedAt:Date.now()}));}catch(e){}}
 function clearSaved(){try{localStorage.removeItem(KEY);}catch(e){}}
+/* ---- 공용 서버 저장 (실패 시 이 브라우저에만 저장) ---- */
+let server=false, docId='', rev=0, pending=0, chain=Promise.resolve();
+async function api(method,body,qs){
+  const r=await fetch('/api/state'+(qs||''),{method,headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined,cache:'no-store'});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  if(!(r.headers.get('content-type')||'').includes('json')) throw new Error('not api');
+  return r.json();
+}
+function patch(ops,stg){
+  if(!server) return;
+  pending++;
+  chain=chain.then(()=>api('PATCH',{docId,ops,stage:stg})).then(r=>{pending--;if(pending===0&&r.doc)applyRemote(r.doc);else if(r.doc){rev=r.doc.rev;}}).catch(()=>{pending--;setMsg('저장하지 못했습니다. 연결을 확인해 주세요.',true);});
+}
+function showEmpty(){
+  items=[];docId='';rev=0;stage='edit';fileName='';
+  $('work').style.display='none';$('drop').style.display='';$('rows').textContent='';$('preview').textContent='';
+  ['newFile','newFile2'].forEach(id=>$(id).textContent='새 파일 올리기');
+}
+function whenText(t){return t?new Date(t).toLocaleString('ko-KR'):'';}
+function applyRemote(doc){
+  if(!doc){ if(items.length) showEmpty(); rev=0; docId=''; return; }
+  const isNew=doc.docId!==docId;
+  docId=doc.docId; rev=doc.rev; fileName=doc.fileName;
+  if(isNew||items.length!==doc.items.length){
+    items=doc.items; $('drop').style.display='none'; $('work').style.display='block'; buildRows();
+  } else {
+    doc.items.forEach((s,i)=>{items[i].del=s.del;items[i].star=s.star;const a=$('del'+i),b=$('star'+i);if(a){a.checked=s.del;b.checked=s.star;}});
+  }
+  $('fname').textContent=`${fileName} · ${items.length}줄 · 공용 저장 · 마지막 저장 ${whenText(doc.updatedAt)}`;
+  const done=doc.stage==='done';
+  if(isNew||(stage==='done')!==done) showStage(done); else render();
+  setMsg('');
+}
+async function poll(){
+  if(!server||pending||document.hidden) return;
+  try{ const r=await api('GET',null,`?rev=${rev}&doc=${docId}`); if(!r.unchanged&&!pending) applyRemote(r.doc); }catch(e){}
+}
 
 function setMsg(t,err){const m=$('msg');m.textContent=t||'';m.className=err?'err':'';}
 function loadLines(lines,name){
-  items=lines.map(s=>s.replace(/\s+$/,'')).filter(s=>s.trim()!=='').map(text=>({text,del:false,star:false,fixed:!/^\d+\.\s.*[:：]/.test(text)}));
-  if(!items.length){setMsg('추출된 텍스트가 없습니다.',true);return;}
-  fileName=name||''; stage='edit'; $('drop').style.display='none';
+  const list=lines.map(s=>s.replace(/\s+$/,'')).filter(s=>s.trim()!=='').map(text=>({text,del:false,star:false,fixed:!/^\d+\.\s.*[:：]/.test(text)}));
+  if(!list.length){setMsg('추출된 텍스트가 없습니다.',true);return;}
+  if(server){
+    setMsg('저장 중…');
+    api('POST',{fileName:name||'',items:list}).then(r=>{docId='';applyRemote(r.doc);}).catch(()=>setMsg('저장하지 못했습니다. 연결을 확인해 주세요.',true));
+    return;
+  }
+  items=list; fileName=name||''; stage='edit'; $('drop').style.display='none';
   $('fname').textContent=name?`${name} · ${items.length}줄`:`${items.length}줄`;
   $('work').style.display='block'; $('resultPanel').style.display='none'; document.querySelector('#work > .panel').style.display='';
   setMsg('');
@@ -343,7 +385,7 @@ function buildRows(){
     const mk=(cls,label,key)=>{
       const l=document.createElement('label'); l.className=cls;
       const c=document.createElement('input'); c.type='checkbox'; c.id=key+i; c.checked=!!it[key];
-      c.onchange=()=>{it[key]=c.checked; if(key==='del'&&c.checked){it.star=false;$('star'+i).checked=false;} if(key==='star'&&c.checked){it.del=false;$('del'+i).checked=false;} render();};
+      c.onchange=()=>{it[key]=c.checked; if(key==='del'&&c.checked){it.star=false;$('star'+i).checked=false;} if(key==='star'&&c.checked){it.del=false;$('del'+i).checked=false;} render(); patch([{i,del:it.del,star:it.star}]);};
       l.append(c,label); return l;
     };
     const t=document.createElement('div'); t.className='t'; t.textContent=it.text;
@@ -414,35 +456,37 @@ function showStage(done){
   if(done){mode='mark';} render();
   window.scrollTo(0,0);
 }
-$('confirm').onclick=()=>showStage(true);
-$('edit').onclick=()=>showStage(false);
+$('confirm').onclick=()=>{showStage(true);patch([],'done');};
+$('edit').onclick=()=>{showStage(false);patch([],'edit');};
 $('copyFinal').onclick=()=>copy(true);
 $('copyMark').onclick=()=>copy(false);
-$('clear').onclick=()=>{items.forEach((it,i)=>{it.del=it.star=false;if($('del'+i)){$('del'+i).checked=false;$('star'+i).checked=false;}});render();};
+$('clear').onclick=()=>{const ops=[];items.forEach((it,i)=>{it.del=it.star=false;if($('del'+i)){$('del'+i).checked=false;$('star'+i).checked=false;ops.push({i,del:false,star:false});}});render();patch(ops);};
 let armed=null;
 function resetAll(btn){
   if(armed!==btn){
-    armed=btn; const old=btn.textContent; btn.textContent='저장된 내용이 지워집니다. 한 번 더 누르세요';
+    armed=btn; const old=btn.textContent; btn.textContent=server?'모든 사용자의 저장 내용이 지워집니다. 한 번 더 누르세요':'저장된 내용이 지워집니다. 한 번 더 누르세요';
     setTimeout(()=>{if(armed===btn){armed=null;btn.textContent=old;}},4000); return;
   }
-  armed=null; items=[]; stage='edit'; fileName=''; clearSaved();
-  $('work').style.display='none'; $('drop').style.display=''; $('rows').textContent=''; $('preview').textContent='';
-  $('newFile').textContent='새 파일 올리기'; $('newFile2').textContent='새 파일 올리기';
-  setMsg(''); window.scrollTo(0,0);
+  armed=null;
+  if(server){ api('DELETE').then(()=>{showEmpty();setMsg('');window.scrollTo(0,0);}).catch(()=>setMsg('초기화하지 못했습니다. 연결을 확인해 주세요.',true)); return; }
+  clearSaved(); showEmpty(); setMsg(''); window.scrollTo(0,0);
 }
 $('newFile').onclick=()=>resetAll($('newFile'));
 $('newFile2').onclick=()=>resetAll($('newFile2'));
-(function restore(){
+function localRestore(){
   try{
     const d=JSON.parse(localStorage.getItem(KEY)||'null');
     if(!d||!Array.isArray(d.items)||!d.items.length) return;
     items=d.items; fileName=d.fileName||'';
-    const when=d.savedAt?new Date(d.savedAt).toLocaleString('ko-KR'):'';
-    $('fname').textContent=`${fileName} · ${items.length}줄${when?' · 마지막 저장 '+when:''}`;
+    $('fname').textContent=`${fileName} · ${items.length}줄${d.savedAt?' · 마지막 저장 '+whenText(d.savedAt):''}`;
     $('drop').style.display='none'; $('work').style.display='block';
     buildRows(); showStage(d.stage==='done');
-    setMsg('');
   }catch(e){}
+}
+(async function init(){
+  try{ const r=await api('GET'); server=true; applyRemote(r.doc); setInterval(poll,4000); return; }catch(e){}
+  server=false; localRestore();
+  if(!items.length) setMsg('ⓘ 공용 서버에 연결되지 않아 이 브라우저에만 저장됩니다.');
 })();
 $('pasteGo').onclick=()=>loadLines($('paste').value.split(/\r?\n/),'붙여넣은 텍스트');
 </script>

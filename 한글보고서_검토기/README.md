@@ -10,3 +10,7 @@
 ```
 npx --yes http-server@14.1.1 한글보고서_검토기/public -p 8766
 ```
+
+## 공용 저장 (Cloudflare)
+`src/index.js`의 Durable Object가 현재 문서 1건(체크 상태·확정 여부)을 저장하고, 접속한 모든 사람이 4초마다 동기화합니다. 서버에 연결되지 않으면(파일로 직접 열기 등) 이 브라우저에만 저장됩니다.
+배포: `npx wrangler deploy` (Workers Builds가 main push 시 자동 실행)
