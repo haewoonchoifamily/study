@@ -60,7 +60,7 @@ export class Store {
       if (m === 'GET') return out({ settings: (await this.state.storage.get('settings')) || null });
       if (m === 'PUT') {
         let b = {}; try { b = await req.json(); } catch (e) {}
-        const st = { doneRange: String(b.doneRange ?? '').slice(0, 100), planRange: String(b.planRange ?? '').slice(0, 100) };
+        const st = { doneRange: String(b.doneRange ?? '').slice(0, 100), planRange: String(b.planRange ?? '').slice(0, 100), deadline: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(String(b.deadline ?? '')) ? String(b.deadline) : '' };
         await this.state.storage.put('settings', st);
         return out({ settings: st });
       }
