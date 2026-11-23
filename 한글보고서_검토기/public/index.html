@@ -168,6 +168,7 @@
     <div class="sf"><label>자동 일정</label><button class="btn" id="setAuto" type="button">자동일정</button><span class="stat" style="flex:1">오늘 기준으로 완료 및 진행 = 지난주 월요일 ~ 이번 주 일요일, 계획업무 = 다음 주 월요일 ~ 그다음 주 일요일, 입력 기한 = 이번 주 수요일 11시를 채웁니다.</span></div>
     <div class="sf"><label for="setDead">입력 기한 (월일·시간)</label><input type="datetime-local" id="setDead" class="dt"> <button class="btn" id="setDeadClr" type="button">지우기</button></div>
     <div class="sf"><span class="stat" style="flex:1">출력 예) 「완료 및 진행 업무: 11. 16.(월) ~ 29.(일)」 「계획업무: 11. 30.(월) ~ 12. 6.(일)」</span><button class="btn primary" id="setSave">일정 저장</button></div>
+    <div class="sf"><label>지난 주 데이터</label><button class="btn" id="wipeAll" type="button" style="color:#c0392b;border-color:#e8b4ae">지난 주 데이터 모두 삭제</button><span class="stat" style="flex:1">6개 부서의 입력 내용과 검토 중인 보고서(취합본)를 모두 지웁니다. 일정·입력 기한·한글 템플릿은 그대로 남습니다.</span></div>
     <div class="sf" style="flex-wrap:wrap">
       <label>최종 출력용 한글 템플릿</label>
       <span class="stat" id="tplInfo" style="flex:1">등록된 템플릿이 없습니다.</span>
@@ -919,6 +920,23 @@ $('setSave').onclick=async()=>{
     const r=await jfetch('/api/settings',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({doneRange:$('setDone').value.trim(),planRange:$('setPlan').value.trim(),deadline:$('setDead').value})});
     settings={...DEF_SET,...r.settings}; schedRender(); m.style.color='#1e7a3c'; m.style.fontWeight='700'; m.style.fontSize='15px'; m.textContent='✔ 저장이 완료되었습니다.';
   }catch(e){ m.style.color='#c0392b'; m.style.fontWeight=''; m.style.fontSize=''; m.textContent='저장하지 못했습니다: '+e.message; }
+};
+let wipeArmed=false;
+$('wipeAll').onclick=async()=>{
+  const b=$('wipeAll'), m=$('setMsg');
+  if(!server){ m.style.color='#c0392b'; m.textContent='공용 서버에 연결되지 않아 삭제할 수 없습니다.'; return; }
+  if(!wipeArmed){
+    wipeArmed=true; const old=b.textContent; b.textContent='모든 사용자의 부서 입력과 취합본이 지워집니다. 한 번 더 누르세요';
+    setTimeout(()=>{ if(wipeArmed){wipeArmed=false;b.textContent=old;} },6000); return;
+  }
+  wipeArmed=false; b.textContent='지난 주 데이터 모두 삭제'; m.style.fontWeight=''; m.style.fontSize='';
+  try{
+    for(let k=1;k<=6;k++) await deptApi('DELETE',k);
+    await api('DELETE');
+    for(const k in textCache) delete textCache[k]; editSt=null; deptState=new Array(6).fill(null);
+    showEmpty(); await deptLoad();
+    m.style.color='#1e7a3c'; m.style.fontWeight='700'; m.style.fontSize='15px'; m.textContent='✔ 지난 주 데이터를 모두 삭제했습니다.';
+  }catch(e){ m.style.color='#c0392b'; m.textContent='삭제하지 못했습니다: '+e.message; }
 };
 $('setAuto').onclick=()=>{
   const t=new Date(); t.setHours(0,0,0,0);
