@@ -164,7 +164,7 @@
     <div class="sf"><label for="setPlan">계획업무 일정</label><input type="hidden" id="setPlan"><input type="date" id="setPlanS" class="dt"> ~ <input type="date" id="setPlanE" class="dt"> <b class="pv" id="pvPlan"></b></div>
     <div class="sf"><label>자동 일정</label><button class="btn" id="setAuto" type="button">자동일정</button><span class="stat" style="flex:1">오늘 기준으로 완료 및 진행 = 이번 달 1일 ~ 말일, 계획업무 = 다음 달 1일 ~ 말일을 채웁니다. 입력 기한은 직접 지정합니다.</span></div>
     <div class="sf"><label for="setDead">입력 기한 (월일·시간)</label><input type="datetime-local" id="setDead" class="dt"> <button class="btn" id="setDeadClr" type="button">지우기</button></div>
-    <div class="sf"><span class="stat" style="flex:1">출력 예) 「완료 및 진행 업무: 11. 16.(월) ~ 29.(일)」 「계획업무: 11. 30.(월) ~ 12. 6.(일)」</span><button class="btn primary" id="setSave">일정 저장</button></div>
+    <div class="sf"><span class="stat" style="flex:1" id="setEx">출력 예)</span><button class="btn primary" id="setSave">일정 저장</button></div>
     <div class="sf"><label>지난 달 데이터</label><button class="btn" id="wipeAll" type="button" style="color:#c0392b;border-color:#e8b4ae">지난 달 데이터 모두 삭제</button><span class="stat" style="flex:1">6개 부서의 입력 내용과 검토 중인 보고서(취합본)를 모두 지웁니다. 일정·입력 기한·한글 템플릿은 그대로 남습니다.</span></div>
     <div class="sf" style="flex-wrap:wrap">
       <label>최종 출력용 한글 템플릿</label>
@@ -876,10 +876,12 @@ function rangeSync(k){
   if(sv&&ev&&ev<sv){ $('set'+k+'E').value=sv; }
   const t=fmtRange($('set'+k+'S').value,$('set'+k+'E').value);
   $('set'+k).value=t; $('pv'+k).textContent=t?'→ '+t:'';
+  updEx();
 }
+function updEx(){ const a=$('setDone').value, b=$('setPlan').value; $('setEx').textContent='출력 예) '+(a?'「완료 및 진행 업무: '+a+'」 ':'')+(b?'「계획업무: '+b+'」':''); }
 function rangeInit(k,text){
   const r=parseRange(text); $('set'+k+'S').value=r?r[0]:''; $('set'+k+'E').value=r?r[1]:'';
-  if(r) rangeSync(k); else { $('set'+k).value=text||''; $('pv'+k).textContent=text?'→ '+text:''; }
+  if(r) rangeSync(k); else { $('set'+k).value=text||''; $('pv'+k).textContent=text?'→ '+text:''; updEx(); }
 }
 ['Done','Plan'].forEach(k=>['S','E'].forEach(x=>$('set'+k+x).onchange=()=>rangeSync(k)));
 function fmtDeadline(v){
