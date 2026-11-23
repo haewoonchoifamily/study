@@ -86,17 +86,71 @@
   <p>한글(.hwp) 파일을 올리면 자동으로 내용을 추출합니다. 삭제·중점을 체크하고 확정을 누르면 결과를 볼 수 있습니다.</p>
 </header>
 <main>
+  <div class="tabs" id="mainTabs" style="margin-bottom:12px">
+    <button id="tabMain" class="on">보고서 검토</button>
+    <button id="tabDept" class="deptBtn">부서별 업로드</button>
+    <button id="tabSet" class="setBtn">⚙ 설정</button>
+  </div>
+  <div id="viewMain">
   <div id="drop" tabindex="0">
     <b>여기에 한글 파일(.hwp / .hwpx)을 끌어놓거나 클릭해서 선택하세요</b>
     <small>파일은 내 컴퓨터(브라우저) 안에서만 처리되며 어디에도 전송되지 않습니다.</small>
     <input id="file" type="file" accept=".hwp,.hwpx" hidden>
   </div>
-  <div style="text-align:center;margin:10px 0"><button class="btn deptBtn">부서별 업로드</button> <button class="btn setBtn">⚙ 설정</button></div>
   <div id="msg"></div>
+  <section id="work">
+    <div id="summary">
+      <div class="chip rp"><span>보고</span><b id="cRep">0</b></div>
+      <div class="chip dl"><span>삭제</span><b id="cDel">0</b></div>
+      <div class="chip st"><span>◆ 중점</span><b id="cStar">0</b></div>
+    </div>
+    <div class="panel">
+      <div class="ph">
+        <div><h2>삭제·중점 체크</h2><div class="sub" id="fname"></div></div>
+        <div class="actions">
+          <button class="btn" id="clear">체크 모두 해제</button>
+          <button class="btn" id="newFile">새 파일 올리기</button>
+        </div>
+      </div>
+      <div class="rows" id="rows"></div>
+      <div class="ph" style="border-top:1px solid var(--line);border-bottom:none">
+        <span class="stat" id="stat"></span>
+        <div class="actions"><button class="btn primary" id="confirm" style="padding:8px 22px;font-size:15px">확정</button></div>
+      </div>
+    </div>
+    <div class="panel" id="resultPanel" style="display:none">
+      <div class="ph">
+        <div><h2>확정 결과</h2><div class="stat" id="statR"></div></div>
+        <div class="tabs">
+          <button id="tabMark" class="on">표시본 (취소선)</button>
+          <button id="tabFinal">최종본</button>
+          <button id="edit" style="margin-left:8px">✎ 수정</button>
+          <button id="newFile2">새 파일 올리기</button>
+        </div>
+      </div>
+      <div id="preview"></div>
+      <div id="exportMsg" class="stat" style="padding:0 18px 10px"></div>
+      <div class="ph" style="border-top:1px solid var(--line);border-bottom:none">
+        <span class="stat">삭제 = 빨간 취소선 · 중점 = 앞에 ◆</span>
+        <div class="actions">
+          <label class="stat" style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="optStar" checked>◆ 넣기</label>
+          <button class="btn primary" id="exportHwp">한글(.hwp)로 저장</button>
+          <button class="btn primary" id="copyFinal">최종본 복사</button>
+          <button class="btn" id="copyMark">표시본 복사</button>
+        </div>
+      </div>
+    </div>
+  </section>
+  <details>
+    <summary>파일이 열리지 않을 때: 텍스트를 직접 붙여넣기</summary>
+    <textarea id="paste" placeholder="한글에서 전체 선택(Ctrl+A) → 복사(Ctrl+C) 후 여기에 붙여넣으세요."></textarea>
+    <button class="btn" id="pasteGo" style="margin-top:6px">붙여넣은 텍스트로 시작</button>
+  </details>
+  </div>
   <div class="panel" id="setPanel">
     <div class="ph">
       <div><h2>설정</h2><div class="sub">취합본의 일정 문구와 최종 출력용 한글 양식을 정합니다. 모든 사용자에게 공통으로 적용됩니다.</div></div>
-      <div class="actions"><button class="btn" id="setClose">닫기</button></div>
+      <div class="actions"></div>
     </div>
     <div class="sf"><label for="setDone">완료 및 진행 업무 일정</label><input type="hidden" id="setDone"><input type="date" id="setDoneS" class="dt"> ~ <input type="date" id="setDoneE" class="dt"> <b class="pv" id="pvDone"></b></div>
     <div class="sf"><label for="setPlan">계획업무 일정</label><input type="hidden" id="setPlan"><input type="date" id="setPlanS" class="dt"> ~ <input type="date" id="setPlanE" class="dt"> <b class="pv" id="pvPlan"></b></div>
@@ -116,67 +170,15 @@
       <div><h2>부서별 업로드</h2><div class="sub" id="deptSub"></div></div>
       <div class="actions">
         <button class="btn primary" id="deptMerge">취합본으로 검토 시작</button>
-        <button class="btn" id="deptClose">닫기</button>
       </div>
     </div>
     <div id="deptRows"></div>
-    <input id="deptFile" type="file" accept=".hwp,.hwpx" hidden>
     <div class="stat" id="deptMsg" style="padding:8px 16px"></div>
   </div>
 
-  <section id="work">
-    <div id="summary">
-      <div class="chip rp"><span>보고</span><b id="cRep">0</b></div>
-      <div class="chip dl"><span>삭제</span><b id="cDel">0</b></div>
-      <div class="chip st"><span>◆ 중점</span><b id="cStar">0</b></div>
-    </div>
-    <div class="panel">
-      <div class="ph">
-        <div><h2>삭제·중점 체크</h2><div class="sub" id="fname"></div></div>
-        <div class="actions">
-          <button class="btn" id="clear">체크 모두 해제</button>
-          <button class="btn" id="newFile">새 파일 올리기</button>
-          <button class="btn deptBtn">부서별 업로드</button>
-          <button class="btn setBtn">⚙ 설정</button>
-        </div>
-      </div>
-      <div class="rows" id="rows"></div>
-      <div class="ph" style="border-top:1px solid var(--line);border-bottom:none">
-        <span class="stat" id="stat"></span>
-        <div class="actions"><button class="btn primary" id="confirm" style="padding:8px 22px;font-size:15px">확정</button></div>
-      </div>
-    </div>
-    <div class="panel" id="resultPanel" style="display:none">
-      <div class="ph">
-        <div><h2>확정 결과</h2><div class="stat" id="statR"></div></div>
-        <div class="tabs">
-          <button id="tabMark" class="on">표시본 (취소선)</button>
-          <button id="tabFinal">최종본</button>
-          <button id="edit" style="margin-left:8px">✎ 수정</button>
-          <button id="newFile2">새 파일 올리기</button>
-          <button class="deptBtn">부서별 업로드</button>
-          <button class="setBtn">⚙ 설정</button>
-        </div>
-      </div>
-      <div id="preview"></div>
-      <div id="exportMsg" class="stat" style="padding:0 18px 10px"></div>
-      <div class="ph" style="border-top:1px solid var(--line);border-bottom:none">
-        <span class="stat">삭제 = 빨간 취소선 · 중점 = 앞에 ◆</span>
-        <div class="actions">
-          <label class="stat" style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="optStar" checked>◆ 넣기</label>
-          <button class="btn primary" id="exportHwp">한글(.hwp)로 저장</button>
-          <button class="btn primary" id="copyFinal">최종본 복사</button>
-          <button class="btn" id="copyMark">표시본 복사</button>
-        </div>
-      </div>
-    </div>
-  </section>
 
-  <details>
-    <summary>파일이 열리지 않을 때: 텍스트를 직접 붙여넣기</summary>
-    <textarea id="paste" placeholder="한글에서 전체 선택(Ctrl+A) → 복사(Ctrl+C) 후 여기에 붙여넣으세요."></textarea>
-    <button class="btn" id="pasteGo" style="margin-top:6px">붙여넣은 텍스트로 시작</button>
-  </details>
+
+
 </main>
 
 <script>
@@ -862,11 +864,14 @@ function tplRender(){
   $('tplInfo').textContent=tplMeta?`등록됨: ${tplMeta.name} · ${Math.round(tplMeta.size/1024)}KB · ${whenText(tplMeta.at)}`:'등록된 템플릿이 없습니다.';
   $('tplDel').style.display=tplMeta?'':'none';
 }
-document.querySelectorAll('.setBtn').forEach(b=>b.onclick=()=>{
-  const p=$('setPanel'); p.style.display='block'; $('setMsg').textContent=server?'':'공용 서버에 연결되지 않아 설정을 저장할 수 없습니다.';
-  loadSettings().then(()=>{ if(!server){rangeInit('Done',settings.doneRange);rangeInit('Plan',settings.planRange);} }); p.scrollIntoView({block:'start'});
-});
-$('setClose').onclick=()=>{$('setPanel').style.display='none';};
+function showTab(n){
+  $('viewMain').style.display=n==='main'?'':'none'; $('deptPanel').style.display=n==='dept'?'block':'none'; $('setPanel').style.display=n==='set'?'block':'none';
+  $('tabMain').classList.toggle('on',n==='main'); $('tabDept').classList.toggle('on',n==='dept'); $('tabSet').classList.toggle('on',n==='set');
+  if(n==='set'){ $('setMsg').textContent=server?'':'공용 서버에 연결되지 않아 설정을 저장할 수 없습니다.'; loadSettings().then(()=>{ if(!server){rangeInit('Done',settings.doneRange);rangeInit('Plan',settings.planRange);} }); }
+  if(n==='dept'){ $('deptMsg').textContent=server?'':'공용 서버에 연결되지 않아 부서별 업로드를 사용할 수 없습니다.'; deptLoad(); }
+  window.scrollTo(0,0);
+}
+$('tabMain').onclick=()=>showTab('main'); $('tabDept').onclick=()=>showTab('dept'); $('tabSet').onclick=()=>showTab('set');
 $('setSave').onclick=async()=>{
   const m=$('setMsg'); m.style.color='';
   try{
@@ -901,7 +906,7 @@ function analyzeTemplate(items){
 /* ===== 부서별 업로드·취합 ===== */
 const DEPTS=['학생지원팀','장학복지팀','진로취업팀','학생상담센터','보건진료센터','학생성공센터'];
 const SECN={A:'완료 및 진행업무',B:'계획업무'};
-let deptState=new Array(6).fill(null), deptTarget=0, mergeArmed=false;
+let deptState=new Array(6).fill(null), mergeArmed=false;
 const textCache={}, openEd=new Set();
 async function deptApi(method,n,body,kind){
   const r=await fetch('/api/dept'+(n?'?n='+n+(kind?'&kind='+kind:''):''),{method,headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined,cache:'no-store'});
@@ -910,22 +915,20 @@ async function deptApi(method,n,body,kind){
   return r.json();
 }
 function deptRender(){
-  const done=deptState.filter(Boolean).length;
+  const done=deptState.filter(d=>d&&d.textCount>0).length;
   document.querySelectorAll('.deptBtn').forEach(b=>b.textContent=`부서별 업로드 (${done}/6)`);
   $('deptSub').textContent=`${done}개 부서 입력 완료 · ${6-done}개 부서 대기 중`;
   const box=$('deptRows'); box.textContent='';
   DEPTS.forEach((nm,k)=>{
-    const d=deptState[k], r=document.createElement('div'); r.className='dr'+(d?' ok':'');
+    const d=(deptState[k]&&deptState[k].textCount>0)?deptState[k]:null, r=document.createElement('div'); r.className='dr'+(d?' ok':'');
     const dot=document.createElement('span'); dot.className='dot';
     const n=document.createElement('span'); n.className='nm'; n.textContent=(k+1)+'. '+nm;
     const st=document.createElement('span'); st.className='st';
-    if(d){ const parts=[]; if(d.count) parts.push(`파일 ${d.fileName} · ${d.count}줄 · ${whenText(d.at)}`); if(d.textCount) parts.push(`직접 입력 ${d.textCount}줄`); st.textContent='✔ 업로드 완료 · '+parts.join(' / '); }
-    else st.textContent='아직 업로드되지 않았습니다';
-    const up=document.createElement('button'); up.className='btn'; up.textContent=(d&&d.count)?'파일 다시 올리기':'파일 올리기'; up.onclick=()=>{deptTarget=k+1;$('deptFile').click();};
-    const ed=document.createElement('button'); ed.className='btn'; ed.textContent=openEd.has(k+1)?'▲ 직접 입력 접기':'✎ 직접 입력'+(d&&d.textCount?` (${d.textCount})`:'');
+    st.textContent=d?`✔ 업로드 완료 · ${d.textCount}줄 입력됨`:'아직 업로드되지 않았습니다';
+    const ed=document.createElement('button'); ed.className='btn'; ed.textContent=openEd.has(k+1)?'▲ 입력창 접기':'✎ 내용 입력'+(d?` (${d.textCount})`:'');
     ed.onclick=async()=>{ if(openEd.has(k+1)) openEd.delete(k+1); else { openEd.add(k+1); try{ textCache[k+1]=(await deptApi('GET',k+1,null,'text')).items; }catch(e){ textCache[k+1]=[]; } } deptRender(); };
-    r.append(dot,n,st,up,ed);
-    if(d){const rm=document.createElement('button');rm.className='btn';rm.textContent='전체 삭제';rm.onclick=async()=>{ if(!confirm(DEPTS[k]+'의 업로드 내용을 모두 지울까요?')) return; try{await deptApi('DELETE',k+1);delete textCache[k+1];await deptLoad();}catch(e){$('deptMsg').textContent='삭제하지 못했습니다.';}};r.append(rm);}
+    r.append(dot,n,st,ed);
+    if(d){const rm=document.createElement('button');rm.className='btn';rm.textContent='전체 삭제';rm.onclick=async()=>{ if(!confirm(DEPTS[k]+'의 입력 내용을 모두 지울까요?')) return; try{await deptApi('DELETE',k+1);delete textCache[k+1];await deptLoad();}catch(e){$('deptMsg').textContent='삭제하지 못했습니다.';}};r.append(rm);}
     box.append(r);
     if(openEd.has(k+1)) box.append(deptEditor(k+1));
   });
@@ -935,7 +938,7 @@ function deptEditor(k){
   const box=document.createElement('div'); box.className='te';
   const add=document.createElement('div'); add.className='add';
   const sel=document.createElement('select'); sel.innerHTML='<option value="A">완료 및 진행업무</option><option value="B">계획업무</option>';
-  const inp=document.createElement('input'); inp.type='text'; inp.placeholder='한 줄씩 입력 (예: 제33회 학생학술연구논문대회 시상식: 11. 24.(화), 12:00, 의양관 심제당)  — 번호는 자동으로 붙습니다';
+  const inp=document.createElement('input'); inp.type='text'; inp.placeholder='한 줄씩 입력 후 Enter (예: 제33회 학생학술연구논문대회 시상식: 11. 24.(화), 12:00, 의양관 심제당)  — 번호는 자동으로 붙습니다';
   const btn=document.createElement('button'); btn.className='btn primary'; btn.textContent='추가';
   const save=async list=>{ try{ await deptApi('PUT',k,{items:list},'text'); textCache[k]=list; await deptLoad(); const el=document.querySelector('.te input[type=text]'); }catch(e){ $('deptMsg').style.color='#c0392b'; $('deptMsg').textContent='저장하지 못했습니다.'; } };
   const go=()=>{ const t=inp.value.trim(); if(!t) return; save([...(textCache[k]||[]),{s:sel.value,t}]).then(()=>{ const i=document.querySelector(`.te[data-k="${k}"] input[type=text]`); if(i) i.focus(); }); };
@@ -953,24 +956,6 @@ async function deptLoad(){
   if(!server){ document.querySelectorAll('.deptBtn').forEach(b=>b.textContent='부서별 업로드'); return; }
   try{ const r=await deptApi('GET'); deptState=r.depts; deptRender(); }catch(e){}
 }
-document.querySelectorAll('.deptBtn').forEach(b=>b.onclick=()=>{
-  const p=$('deptPanel'); p.style.display='block'; $('deptMsg').textContent=server?'':'공용 서버에 연결되지 않아 부서별 업로드를 사용할 수 없습니다.';
-  deptLoad(); p.scrollIntoView({block:'start'});
-});
-$('deptClose').onclick=()=>{$('deptPanel').style.display='none';};
-$('deptFile').onchange=async()=>{
-  const f=$('deptFile').files[0]; $('deptFile').value=''; if(!f||!deptTarget) return;
-  const k=deptTarget, msg=$('deptMsg'); msg.style.color=''; msg.textContent='추출 중…';
-  try{
-    if(!server) throw new Error('공용 서버에 연결되지 않았습니다.');
-    const ex=await extractFile(f); pendingOrig=null;
-    const lines=ex.map(x=>(typeof x==='string'?x:x.text).replace(/\s+$/,'')).filter(t=>t.trim()!=='');
-    if(!lines.some(t=>/^\d+\.\s.*[:：]/.test(t))) throw new Error('보고 항목(“1. …: …”)을 찾지 못했습니다. 올바른 보고서 파일인지 확인해 주세요.');
-    await deptApi('PUT',k,{fileName:f.name,lines});
-    msg.style.color='#1e7a3c'; msg.textContent=`${DEPTS[k-1]} 업로드 완료 (${f.name})`;
-    await deptLoad();
-  }catch(e){ msg.style.color='#c0392b'; msg.textContent='업로드하지 못했습니다: '+e.message; }
-};
 function mergeDepts(list,st){ /* list: [{k, lines, text:[{s,t}]}] 부서 순서 */
   const isItem=t=>/^\d+\.\s.*[:：]/.test(t);
   let head=null, tail=null, hA='▣ 완료 및 진행업무', hB='▣ 계획업무'; const A=[], B=[];
@@ -993,7 +978,7 @@ function mergeDepts(list,st){ /* list: [{k, lines, text:[{s,t}]}] 부서 순서 
 }
 $('deptMerge').onclick=async()=>{
   const b=$('deptMerge'), msg=$('deptMsg'); msg.style.color='';
-  const done=deptState.filter(Boolean).length;
+  const done=deptState.filter(d=>d&&d.textCount>0).length;
   if(!mergeArmed){
     mergeArmed=true; const old=b.textContent;
     b.textContent=(items.length?'현재 검토 내용이 취합본으로 바뀝니다. ':'')+(done<6?`아직 ${6-done}개 부서가 없습니다. `:'')+'한 번 더 누르세요';
@@ -1002,11 +987,10 @@ $('deptMerge').onclick=async()=>{
   mergeArmed=false; b.textContent='취합본으로 검토 시작';
   try{
     await loadSettings();
-    const list=[]; for(let k=1;k<=6;k++){ const d=deptState[k-1]; if(!d) continue;
-      const lines=d.count?(await deptApi('GET',k)).lines:[]; const text=d.textCount?(await deptApi('GET',k,null,'text')).items:[];
-      list.push({k,lines,text}); }
+    const list=[]; for(let k=1;k<=6;k++){ const d=deptState[k-1]; if(!d||!d.textCount) continue;
+      list.push({k,lines:[],text:(await deptApi('GET',k,null,'text')).items}); }
     const lines=mergeDepts(list,settings);
-    pendingOrig=null; $('deptPanel').style.display='none';
+    pendingOrig=null; showTab('main');
     loadLines(lines,'부서별 취합본');
   }catch(e){ msg.style.color='#c0392b'; msg.textContent='취합하지 못했습니다: '+e.message; }
 };
