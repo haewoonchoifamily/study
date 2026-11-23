@@ -958,6 +958,7 @@ function analyzeTemplate(items){
 const DEPTS=['학생지원팀','장학복지팀','진로취업팀','학생상담센터','보건진료센터','학생성공센터'];
 const SECN={A:'완료 및 진행업무',B:'계획업무'};
 let deptState=new Array(6).fill(null), mergeArmed=false;
+let editSt=null;
 const textCache={}, openEd=new Set([1,2,3,4,5,6]);
 async function deptApi(method,n,body,kind){
   const r=await fetch('/api/dept'+(n?'?n='+n+(kind?'&kind='+kind:''):''),{method,headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined,cache:'no-store'});
@@ -997,9 +998,22 @@ function deptEditor(k){
   add.append(sel,inp,btn); box.append(add); box.dataset.k=k;
   (textCache[k]||[]).forEach((x,i)=>{
     const li=document.createElement('div'); li.className='li';
-    const b=document.createElement('b'); b.textContent=SECN[x.s]; const sp=document.createElement('span'); sp.textContent=x.t;
-    const rm=document.createElement('button'); rm.className='btn'; rm.textContent='삭제'; rm.onclick=()=>save((textCache[k]||[]).filter((_,j)=>j!==i));
-    li.append(b,sp,rm); box.append(li);
+    if(editSt&&editSt.k===k&&editSt.i===i){
+      const sl=document.createElement('select'); sl.innerHTML='<option value="A">완료 및 진행업무</option><option value="B">계획업무</option>'; sl.value=x.s;
+      const ip=document.createElement('input'); ip.type='text'; ip.value=x.t; ip.style.flex='1';
+      const ok=document.createElement('button'); ok.className='btn primary'; ok.textContent='저장';
+      const no=document.createElement('button'); no.className='btn'; no.textContent='취소';
+      const done=()=>{ const t=ip.value.trim(); if(!t) return; const list=(textCache[k]||[]).map((y,j)=>j===i?{s:sl.value,t}:y); editSt=null; save(list); };
+      ok.onclick=done; no.onclick=()=>{editSt=null;deptRender();};
+      ip.onkeydown=e=>{ if(e.key==='Enter'&&!e.isComposing){e.preventDefault();done();} else if(e.key==='Escape'){editSt=null;deptRender();} };
+      li.append(sl,ip,ok,no); setTimeout(()=>ip.focus(),0);
+    } else {
+      const b=document.createElement('b'); b.textContent=SECN[x.s]; const sp=document.createElement('span'); sp.textContent=x.t;
+      const ed=document.createElement('button'); ed.className='btn'; ed.textContent='수정'; ed.onclick=()=>{editSt={k,i};deptRender();};
+      const rm=document.createElement('button'); rm.className='btn'; rm.textContent='삭제'; rm.onclick=()=>save((textCache[k]||[]).filter((_,j)=>j!==i));
+      li.append(b,sp,ed,rm);
+    }
+    box.append(li);
   });
   return box;
 }
