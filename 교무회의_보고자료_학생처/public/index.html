@@ -173,7 +173,7 @@
       <button class="btn" id="tplDel" style="display:none">삭제</button>
       <input id="tplFile" type="file" accept=".hwp" hidden>
     </div>
-    <div class="stat" style="padding:4px 16px 10px">템플릿은 이전 달 보고서처럼 「▣ 주요 완료 및 진행업무」·「▣ 주요 계획업무」 아래에 “1. …: …” 항목이 이미 들어 있는 .hwp 파일입니다. 취합본의 항목 수에 맞춰 그 양식 그대로 채워서 저장합니다.</div>
+    <div class="stat" style="padding:4px 16px 10px">템플릿은 이전 달 보고서처럼 「▣ 주요 완료업무」·「▣ 주요 계획업무」 아래에 “1. …” 항목이 이미 들어 있는 .hwp 파일입니다. 취합본의 항목 수에 맞춰 그 양식 그대로 채워서 저장합니다.</div>
     <div class="stat" id="setMsg" style="padding:0 16px 10px"></div>
   </div>
   <div class="panel" id="deptPanel">
@@ -962,19 +962,19 @@ $('tplFile').onchange=async()=>{
     if(buf[0]===0x50&&buf[1]===0x4b) throw new Error('.hwpx 파일은 템플릿으로 쓸 수 없습니다. .hwp 파일로 저장해서 올려 주세요.');
     const items=await extractHWP(buf);
     const chk=analyzeTemplate(items);
-    if(!chk.ha&&!chk.hb) throw new Error('「주요 완료 및 진행업무」·「주요 계획업무」 제목 줄을 찾지 못했습니다. 보고서 양식(.hwp)인지 확인해 주세요.');
+    if(!chk.ha&&!chk.hb) throw new Error('「완료업무」·「계획업무」(앞에 「주요」가 있어도 됨) 제목 줄을 찾지 못했습니다. 보고서 양식(.hwp)인지 확인해 주세요.');
     const r=await jfetch('/api/template?name='+encodeURIComponent(f.name),{method:'PUT',body:buf});
     tplMeta=r.meta; tplRender(); m.style.color='#1e7a3c'; m.textContent=`템플릿을 등록했습니다 (완료 및 진행 ${chk.a}항목 · 계획 ${chk.b}항목 양식 확인).`+((!chk.a||!chk.b)?' 항목이 없는 부분은 제목 줄 서식을 복제해서 채웁니다.':'');
   }catch(e){ m.style.color='#c0392b'; m.textContent='등록하지 못했습니다: '+e.message; }
 };
 $('tplDel').onclick=async()=>{ try{ await jfetch('/api/template',{method:'DELETE'}); tplMeta=null; tplRender(); $('setMsg').textContent='템플릿을 삭제했습니다.'; }catch(e){ $('setMsg').textContent='삭제하지 못했습니다.'; } };
-const HEAD_RE=/^[^가-힣A-Za-z0-9]*(?:주요\s*)?(완료\s*및\s*진행\s*업무|계획\s*업무)\s*$/;
+const HEAD_RE=/^[^가-힣A-Za-z0-9]*(?:주요\s*)?((?:완료\s*및\s*진행|완료|진행)\s*업무|계획\s*업무)\s*$/;   /* 「주요」·▣ 유무, 「완료업무」·「진행업무」·「완료 및 진행업무」·「계획업무」 모두 인식 */
 const NUM_RE=/^[◆◈◇★☆\s]*\d+\s*\./;
 function analyzeTemplate(items){
   let sec=null,a=0,b=0,ha=0,hb=0;
   items.forEach(it=>{ const t=(it.text||'').trim(); const h=HEAD_RE.exec(t);
     if(h){ sec=/계획/.test(t)?'B':'A'; if(sec==='A')ha++; else hb++; return; }
-    if(sec&&NUM_RE.test(t)&&!/^계획\s*업무\s*[:：]|^완료\s*및\s*진행\s*업무\s*[:：]/.test(t)){ if(sec==='A')a++; else b++; } });
+    if(sec&&NUM_RE.test(t)&&!/^(?:주요\s*)?계획\s*업무\s*[:：]|^(?:주요\s*)?(?:완료\s*및\s*진행|완료|진행)\s*업무\s*[:：]/.test(t)){ if(sec==='A')a++; else b++; } });
   return {a,b,ha,hb};
 }
 
@@ -1065,7 +1065,7 @@ function mergeDepts(list,st){ /* list: [{k, lines, text:[{s,t}]}] 부서 순서 
   const num=(arr)=>arr.map(({k,x},i)=>({text:x.replace(/^([◆◈◇★☆\s]*)\d+\./,(_,a)=>a+(i+1)+'.'),dept:k,fixed:false}));
   const tl=(tail||[]).slice();
   const put=(re,label,val)=>{ if(!val) return; const t=label+': '+val, i=tl.findIndex(x=>re.test(x)); if(i>=0) tl[i]=t; else tl.push(t); };
-  put(/^완료\s*및\s*진행\s*업무\s*[:：]/,'완료 및 진행 업무',st.doneRange);
+  put(/^(?:완료\s*및\s*진행|완료|진행)\s*업무\s*[:：]/,'완료 및 진행 업무',st.doneRange);
   put(/^계획\s*업무\s*[:：]/,'계획업무',st.planRange);
   return [...(head||[]),hA,...num(A),hB,...num(B),...tl];
 }
@@ -1135,7 +1135,7 @@ async function fillTemplate(tpl,grp,opts){
       const isHead=tx!=null&&HEAD_RE.test(tx.trim());
       if(isHead) sec=/계획/.test(tx)?'B':'A';
       const last=paras[paras.length-1]; last.sec=sec; last.head=isHead;
-      last.kind=tx!=null?(/^완료\s*및\s*진행\s*업무\s*[:：]/.test(tx)?'sd':(/^계획\s*업무\s*[:：]/.test(tx)?'sp':null)):null;
+      last.kind=tx!=null?(/^(?:주요\s*)?(?:완료\s*및\s*진행|완료|진행)\s*업무\s*[:：]/.test(tx)?'sd':(/^(?:주요\s*)?계획\s*업무\s*[:：]/.test(tx)?'sp':null)):null;
       last.item=tx!=null&&!!sec&&!isHead&&!last.kind&&NUM_RE.test(tx);
     }
     const act=new Map(); // ph -> {text?, del?, after?:[texts]}
