@@ -8,8 +8,8 @@
   :root{--bg:#f5f6f8;--card:#fff;--line:#e2e5ea;--text:#1d2330;--mute:#6b7380;--accent:#1f4e8c;--del:#c0392b;--star:#d4880f}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;line-height:1.55}
-  header{background:var(--accent);color:#fff;padding:14px 20px}
-  header h1{margin:0;font-size:18px;font-weight:700}
+  header{background:var(--accent);color:#fff;padding:22px 20px;text-align:center}
+  header h1{margin:0;font-size:30px;font-weight:800;letter-spacing:1px}
   header p{margin:2px 0 0;font-size:13px;opacity:.85}
   main{max-width:1280px;margin:0 auto;padding:16px}
   #drop{border:2px dashed #9aa6b8;border-radius:12px;background:var(--card);padding:28px 16px;text-align:center;cursor:pointer;transition:.15s}
@@ -1014,7 +1014,7 @@ function deptEditor(k){
   const box=document.createElement('div'); box.className='te';
   const add=document.createElement('div'); add.className='add';
   const sel=document.createElement('select'); sel.innerHTML='<option value="A">주요 완료 및 진행업무</option><option value="B">주요 계획업무</option>';
-  const inp=document.createElement('input'); inp.type='text'; inp.placeholder='한 줄씩 입력 후 Enter (예: 제33회 학생학술연구논문대회 시상식: 11. 24.(화), 12:00, 의양관 심제당)  — 번호는 자동으로 붙습니다';
+  const inp=document.createElement('input'); inp.type='text'; inp.placeholder='한 줄씩 입력 후 Enter';
   const btn=document.createElement('button'); btn.className='btn primary'; btn.textContent='추가';
   const save=async list=>{ try{ await deptApi('PUT',k,{items:list},'text'); textCache[k]=list; await deptLoad(); const el=document.querySelector('.te input[type=text]'); }catch(e){ $('deptMsg').style.color='#c0392b'; $('deptMsg').textContent='저장하지 못했습니다.'; } };
   const go=()=>{ const t=inp.value.trim(); if(!t) return; save([...(textCache[k]||[]),{s:sel.value,t}]).then(()=>{ const i=document.querySelector(`.te[data-k="${k}"] input[type=text]`); if(i) i.focus(); }); };
