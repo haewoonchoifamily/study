@@ -56,6 +56,32 @@ export class Store {
       }
       return out({ error: 'method' }, 405);
     }
+    if (url.pathname === '/api/dept') {
+      const n = Number(url.searchParams.get('n'));
+      if (!n) {
+        const depts = [];
+        for (let k = 1; k <= 6; k++) {
+          const d = await this.state.storage.get('dept' + k);
+          depts.push(d ? { n: k, fileName: d.fileName, at: d.at, count: d.lines.length } : null);
+        }
+        return out({ depts });
+      }
+      if (!Number.isInteger(n) || n < 1 || n > 6) return out({ error: 'dept' }, 400);
+      if (m === 'GET') {
+        const d = await this.state.storage.get('dept' + n);
+        return d ? out(d) : out({ error: 'none' }, 404);
+      }
+      if (m === 'PUT') {
+        let b = {}; try { b = await req.json(); } catch (e) {}
+        const lines = Array.isArray(b.lines) ? b.lines.map(x => String(x).slice(0, 1000)) : [];
+        if (!lines.length || lines.length > 600 || lines.join('').length > 90000) return out({ error: 'size' }, 413);
+        const d = { fileName: String(b.fileName ?? '').slice(0, 200), at: Date.now(), lines };
+        await this.state.storage.put('dept' + n, d);
+        return out({ ok: true, at: d.at });
+      }
+      if (m === 'DELETE') { await this.state.storage.delete('dept' + n); return out({ ok: true }); }
+      return out({ error: 'method' }, 405);
+    }
     if (m === 'GET') {
       const rev = Number(url.searchParams.get('rev')), id = url.searchParams.get('doc');
       if (this.doc && rev === this.doc.rev && id === this.doc.docId) return out({ unchanged: true });
@@ -71,6 +97,7 @@ export class Store {
         fixed: !!i.fixed, del: false, star: false,
         sec: Number.isFinite(i.sec) ? i.sec : undefined, ph: Number.isFinite(i.ph) ? i.ph : undefined,
         ln: Number.isFinite(i.ln) ? i.ln : undefined, nl: Number.isFinite(i.nl) ? i.nl : undefined,
+        dept: Number.isInteger(i.dept) && i.dept >= 1 && i.dept <= 6 ? i.dept : undefined,
       }));
       await this.clearFile();
       this.doc = {
@@ -108,7 +135,7 @@ export class Store {
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
-    if (url.pathname === '/api/state' || url.pathname === '/api/file') {
+    if (url.pathname === '/api/state' || url.pathname === '/api/file' || url.pathname === '/api/dept') {
       return env.STORE.get(env.STORE.idFromName('main')).fetch(req);
     }
     return env.ASSETS.fetch(req);

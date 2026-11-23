@@ -54,6 +54,15 @@
   #preview .empty{color:var(--mute)}
   .actions{display:flex;gap:6px;flex-wrap:wrap}
   .stat{font-size:12.5px;color:var(--mute)}
+  #deptPanel{display:none;margin-bottom:12px}
+  .dr{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line)}
+  .dr:last-child{border-bottom:none}
+  .dot{width:16px;height:16px;border-radius:50%;flex:none;background:#d93025;box-shadow:0 0 0 3px #fbd9d6}
+  .dr.ok .dot{background:#1e9e4a;box-shadow:0 0 0 3px #cdeed8}
+  .dr .nm{font-weight:700;min-width:120px}
+  .dr .st{flex:1;font-size:13px;color:#d93025}
+  .dr.ok .st{color:#1e7a3c}
+  .dp{display:inline-block;font-size:11px;color:#fff;background:#7a8aa3;border-radius:10px;padding:0 7px;margin-right:6px;vertical-align:1px}
   details{margin-top:12px;font-size:13px;color:var(--mute)}
   textarea{width:100%;min-height:120px;margin-top:8px;font:inherit;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:8px}
   @media print{header,#drop,#msg,.ph .actions,.rows,details{display:none!important}#work{display:block}.panel{border:none}}
@@ -70,7 +79,20 @@
     <small>파일은 내 컴퓨터(브라우저) 안에서만 처리되며 어디에도 전송되지 않습니다.</small>
     <input id="file" type="file" accept=".hwp,.hwpx" hidden>
   </div>
+  <div style="text-align:center;margin:10px 0"><button class="btn deptBtn">부서별 업로드</button></div>
   <div id="msg"></div>
+  <div class="panel" id="deptPanel">
+    <div class="ph">
+      <div><h2>부서별 업로드</h2><div class="sub" id="deptSub"></div></div>
+      <div class="actions">
+        <button class="btn primary" id="deptMerge">취합본으로 검토 시작</button>
+        <button class="btn" id="deptClose">닫기</button>
+      </div>
+    </div>
+    <div id="deptRows"></div>
+    <input id="deptFile" type="file" accept=".hwp,.hwpx" hidden>
+    <div class="stat" id="deptMsg" style="padding:8px 16px"></div>
+  </div>
 
   <section id="work">
     <div id="summary">
@@ -84,6 +106,7 @@
         <div class="actions">
           <button class="btn" id="clear">체크 모두 해제</button>
           <button class="btn" id="newFile">새 파일 올리기</button>
+          <button class="btn deptBtn">부서별 업로드</button>
         </div>
       </div>
       <div class="rows" id="rows"></div>
@@ -100,6 +123,7 @@
           <button id="tabFinal">최종본</button>
           <button id="edit" style="margin-left:8px">✎ 수정</button>
           <button id="newFile2">새 파일 올리기</button>
+          <button class="deptBtn">부서별 업로드</button>
         </div>
       </div>
       <div id="preview"></div>
@@ -574,7 +598,7 @@ async function poll(){
 function setMsg(t,err){const m=$('msg');m.textContent=t||'';m.className=err?'err':'';}
 let origBuf=null, origKey='', pendingOrig=null;
 function loadLines(lines,name){
-  const list=lines.map(x=>typeof x==='string'?{text:x}:x).map(x=>({...x,text:x.text.replace(/\s+$/,'')})).filter(x=>x.text.trim()!=='').map(x=>({text:x.text,sec:x.sec,ph:x.ph,ln:x.ln,nl:x.nl,del:false,star:false,fixed:!/^\d+\.\s.*[:：]/.test(x.text)}));
+  const list=lines.map(x=>typeof x==='string'?{text:x}:x).map(x=>({...x,text:x.text.replace(/\s+$/,'')})).filter(x=>x.text.trim()!=='').map(x=>({text:x.text,sec:x.sec,ph:x.ph,ln:x.ln,nl:x.nl,del:false,star:false,fixed:!/^\d+\.\s.*[:：]/.test(x.text),dept:x.dept}));
   if(!list.length){setMsg('추출된 텍스트가 없습니다.',true);return;}
   const orig=pendingOrig; pendingOrig=null;
   if(server){
@@ -603,7 +627,9 @@ function buildRows(){
       c.onchange=()=>{it[key]=c.checked; if(key==='del'&&c.checked){it.star=false;$('star'+i).checked=false;} if(key==='star'&&c.checked){it.del=false;$('del'+i).checked=false;} render(); patch([{i,del:it.del,star:it.star}]);};
       l.append(c,label); return l;
     };
-    const t=document.createElement('div'); t.className='t'; t.textContent=it.text;
+    const t=document.createElement('div'); t.className='t';
+    if(it.dept){const b=document.createElement('span');b.className='dp';b.textContent=DEPTS[it.dept-1];t.append(b);}
+    t.append(document.createTextNode(it.text));
     if(it.fixed){r.classList.add('fixed');const sp=document.createElement('div');sp.style.gridColumn='1 / 3';t.style.gridColumn='3';r.append(sp,t);}
     else r.append(mk('d','삭제','del'),mk('s','◆중점','star'),t);
     box.append(r);
@@ -730,7 +756,7 @@ function downloadBytes(bytes,name){
 $('exportHwp').onclick=async()=>{
   const msg=$('exportMsg'), btn=$('exportHwp'); msg.style.color=''; msg.textContent='';
   try{
-    if(!items.some(i=>i.ph!=null)) throw new Error('이 문서는 .hwp 파일에서 올린 것이 아니어서 한글 파일로 저장할 수 없습니다. 「새 파일 올리기」로 .hwp 파일을 올려 주세요.');
+    if(!items.some(i=>i.ph!=null)) throw new Error('이 문서는 .hwp 파일에서 올린 것이 아니어서(부서별 취합본 포함) 한글 파일로 저장할 수 없습니다. 「최종본 복사」를 이용해 주세요. 「새 파일 올리기」로 .hwp 파일을 올려 주세요.');
     btn.disabled=true; btn.textContent='만드는 중…';
     const orig=await getOrig();
     if(!orig) throw new Error('원본 한글 파일을 찾을 수 없습니다. 「새 파일 올리기」로 다시 올려 주세요.');
@@ -743,6 +769,87 @@ $('exportHwp').onclick=async()=>{
   }catch(e){ msg.style.color='#c0392b'; msg.textContent='저장하지 못했습니다: '+e.message; }
   finally{ btn.disabled=false; btn.textContent='한글(.hwp)로 저장'; }
 };
+/* ===== 부서별 업로드·취합 ===== */
+const DEPTS=['학생지원팀','장학복지팀','진로취업팀','학생상담센터','보건진료센터','학생성공센터'];
+let deptState=new Array(6).fill(null), deptTarget=0, mergeArmed=false;
+async function deptApi(method,n,body){
+  const r=await fetch('/api/dept'+(n?'?n='+n:''),{method,headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined,cache:'no-store'});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  if(!(r.headers.get('content-type')||'').includes('json')) throw new Error('not api');
+  return r.json();
+}
+function deptRender(){
+  const done=deptState.filter(Boolean).length;
+  document.querySelectorAll('.deptBtn').forEach(b=>b.textContent=`부서별 업로드 (${done}/6)`);
+  $('deptSub').textContent=`${done}개 부서 업로드 완료 · ${6-done}개 부서 대기 중`;
+  const box=$('deptRows'); box.textContent='';
+  DEPTS.forEach((nm,k)=>{
+    const d=deptState[k], r=document.createElement('div'); r.className='dr'+(d?' ok':'');
+    const dot=document.createElement('span'); dot.className='dot';
+    const n=document.createElement('span'); n.className='nm'; n.textContent=(k+1)+'. '+nm;
+    const st=document.createElement('span'); st.className='st'; st.textContent=d?`✔ 업로드 완료 · ${d.fileName} · ${d.count}줄 · ${whenText(d.at)}`:'아직 업로드되지 않았습니다';
+    const up=document.createElement('button'); up.className='btn'; up.textContent=d?'다시 올리기':'파일 올리기'; up.onclick=()=>{deptTarget=k+1;$('deptFile').click();};
+    r.append(dot,n,st,up);
+    if(d){const rm=document.createElement('button');rm.className='btn';rm.textContent='삭제';rm.onclick=async()=>{try{await deptApi('DELETE',k+1);await deptLoad();}catch(e){$('deptMsg').textContent='삭제하지 못했습니다.';}};r.append(rm);}
+    box.append(r);
+  });
+  $('deptMerge').disabled=!done;
+}
+async function deptLoad(){
+  if(!server){ document.querySelectorAll('.deptBtn').forEach(b=>b.textContent='부서별 업로드'); return; }
+  try{ const r=await deptApi('GET'); deptState=r.depts; deptRender(); }catch(e){}
+}
+document.querySelectorAll('.deptBtn').forEach(b=>b.onclick=()=>{
+  const p=$('deptPanel'); p.style.display='block'; $('deptMsg').textContent=server?'':'공용 서버에 연결되지 않아 부서별 업로드를 사용할 수 없습니다.';
+  deptLoad(); p.scrollIntoView({block:'start'});
+});
+$('deptClose').onclick=()=>{$('deptPanel').style.display='none';};
+$('deptFile').onchange=async()=>{
+  const f=$('deptFile').files[0]; $('deptFile').value=''; if(!f||!deptTarget) return;
+  const k=deptTarget, msg=$('deptMsg'); msg.style.color=''; msg.textContent='추출 중…';
+  try{
+    if(!server) throw new Error('공용 서버에 연결되지 않았습니다.');
+    const ex=await extractFile(f); pendingOrig=null;
+    const lines=ex.map(x=>(typeof x==='string'?x:x.text).replace(/\s+$/,'')).filter(t=>t.trim()!=='');
+    if(!lines.some(t=>/^\d+\.\s.*[:：]/.test(t))) throw new Error('보고 항목(“1. …: …”)을 찾지 못했습니다. 올바른 보고서 파일인지 확인해 주세요.');
+    await deptApi('PUT',k,{fileName:f.name,lines});
+    msg.style.color='#1e7a3c'; msg.textContent=`${DEPTS[k-1]} 업로드 완료 (${f.name})`;
+    await deptLoad();
+  }catch(e){ msg.style.color='#c0392b'; msg.textContent='업로드하지 못했습니다: '+e.message; }
+};
+function mergeDepts(list){ /* list: [{k, lines}] 부서 순서 */
+  const isItem=t=>/^\d+\.\s.*[:：]/.test(t);
+  let head=null, tail=null, hA='▣ 완료 및 진행업무', hB='▣ 계획업무'; const A=[], B=[];
+  list.forEach(({k,lines})=>{
+    let sec=null; const h=[], t=[]; let sawA=false, sawB=false;
+    lines.forEach(x=>{
+      if(/^▣/.test(x)){ sec=x.includes('계획')?'B':'A'; if(sec==='A'&&!sawA){sawA=true; if(!head)hA=x;} if(sec==='B'&&!sawB){sawB=true; if(!tail)hB=x;} return; }
+      if(isItem(x)){ if(sec==='A') A.push({k,x}); else if(sec==='B') B.push({k,x}); return; }
+      (sec?t:h).push(x);
+    });
+    if(!head&&h.length) head=h; if(!tail&&t.length) tail=t;
+  });
+  const num=(arr)=>arr.map(({k,x},i)=>({text:x.replace(/^([◆◈◇★☆\s]*)\d+\./,(_,a)=>a+(i+1)+'.'),dept:k}));
+  return [...(head||[]),hA,...num(A),hB,...num(B),...(tail||[])];
+}
+$('deptMerge').onclick=async()=>{
+  const b=$('deptMerge'), msg=$('deptMsg'); msg.style.color='';
+  const done=deptState.filter(Boolean).length;
+  if(!mergeArmed){
+    mergeArmed=true; const old=b.textContent;
+    b.textContent=(items.length?'현재 검토 내용이 취합본으로 바뀝니다. ':'')+(done<6?`아직 ${6-done}개 부서가 없습니다. `:'')+'한 번 더 누르세요';
+    setTimeout(()=>{mergeArmed=false;b.textContent=old;},5000); return;
+  }
+  mergeArmed=false; b.textContent='취합본으로 검토 시작';
+  try{
+    const list=[]; for(let k=1;k<=6;k++){ if(!deptState[k-1]) continue; const r=await deptApi('GET',k); list.push({k,lines:r.lines}); }
+    const lines=mergeDepts(list);
+    pendingOrig=null; $('deptPanel').style.display='none';
+    loadLines(lines.map(t=>typeof t==='string'?t:t),'부서별 취합본');
+  }catch(e){ msg.style.color='#c0392b'; msg.textContent='취합하지 못했습니다: '+e.message; }
+};
+setInterval(()=>{ if(server&&!document.hidden) deptLoad(); },5000);
+setTimeout(deptLoad,1200);
 $('pasteGo').onclick=()=>loadLines($('paste').value.split(/\r?\n/),'붙여넣은 텍스트');
 </script>
 </body>
