@@ -62,6 +62,12 @@
   .dr .nm{font-weight:700;min-width:120px}
   .dr .st{flex:1;font-size:13px;color:#d93025}
   .dr.ok .st{color:#1e7a3c}
+  .sched{display:flex;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);background:#fff}
+  .sched .sc{flex:1;border:2px solid #9db7dd;border-radius:12px;padding:12px 16px;text-align:center;background:#f3f7fd}
+  .sched .sc.pl{border-color:#ecd49a;background:#fffaf0}
+  .sched .sc span{display:block;font-size:14px;color:var(--mute);font-weight:700}
+  .sched .sc b{display:block;font-size:26px;margin-top:2px;color:var(--accent);letter-spacing:.3px}
+  .sched .sc.pl b{color:var(--star)}
   .te{padding:8px 16px 12px 44px;background:#f7f9fc;border-bottom:1px solid var(--line)}
   .te .add{display:flex;gap:6px;margin-bottom:6px}
   .te input[type=text],.sf input[type=text]{flex:1;font:inherit;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:6px 10px}
@@ -172,6 +178,7 @@
         <button class="btn primary" id="deptMerge">취합본으로 검토 시작</button>
       </div>
     </div>
+    <div class="sched" id="deptSched"></div>
     <div id="deptRows"></div>
     <div class="stat" id="deptMsg" style="padding:8px 16px"></div>
   </div>
@@ -830,7 +837,7 @@ async function loadSettings(){
   if(!server) return;
   try{ const r=await jfetch('/api/settings'); if(r.settings) settings={...DEF_SET,...r.settings}; }catch(e){}
   try{ const r=await jfetch('/api/template?meta=1'); tplMeta=r.meta; }catch(e){}
-  rangeInit('Done',settings.doneRange); rangeInit('Plan',settings.planRange); tplRender();
+  rangeInit('Done',settings.doneRange); rangeInit('Plan',settings.planRange); tplRender(); schedRender();
 }
 const DOW=['일','월','화','수','목','금','토'];
 const p2=n=>String(n).padStart(2,'0');
@@ -860,6 +867,14 @@ function rangeInit(k,text){
   if(r) rangeSync(k); else { $('set'+k).value=text||''; $('pv'+k).textContent=text?'→ '+text:''; }
 }
 ['Done','Plan'].forEach(k=>['S','E'].forEach(x=>$('set'+k+x).onchange=()=>rangeSync(k)));
+function schedRender(){
+  const box=$('deptSched'); if(!box) return; box.textContent='';
+  [['완료 및 진행업무',settings.doneRange,''],['계획업무',settings.planRange,'pl']].forEach(([l,v,c])=>{
+    const d=document.createElement('div'); d.className='sc '+c;
+    const a=document.createElement('span'); a.textContent=l; const b=document.createElement('b'); b.textContent=v||'(설정에서 일정을 지정하세요)';
+    d.append(a,b); box.append(d);
+  });
+}
 function tplRender(){
   $('tplInfo').textContent=tplMeta?`등록됨: ${tplMeta.name} · ${Math.round(tplMeta.size/1024)}KB · ${whenText(tplMeta.at)}`:'등록된 템플릿이 없습니다.';
   $('tplDel').style.display=tplMeta?'':'none';
@@ -868,7 +883,7 @@ function showTab(n){
   $('viewMain').style.display=n==='main'?'':'none'; $('deptPanel').style.display=n==='dept'?'block':'none'; $('setPanel').style.display=n==='set'?'block':'none';
   $('tabMain').classList.toggle('on',n==='main'); $('tabDept').classList.toggle('on',n==='dept'); $('tabSet').classList.toggle('on',n==='set');
   if(n==='set'){ $('setMsg').textContent=server?'':'공용 서버에 연결되지 않아 설정을 저장할 수 없습니다.'; loadSettings().then(()=>{ if(!server){rangeInit('Done',settings.doneRange);rangeInit('Plan',settings.planRange);} }); }
-  if(n==='dept'){ $('deptMsg').textContent=server?'':'공용 서버에 연결되지 않아 부서별 업로드를 사용할 수 없습니다.'; deptLoad(); }
+  if(n==='dept'){ $('deptMsg').textContent=server?'':'공용 서버에 연결되지 않아 부서별 업로드를 사용할 수 없습니다.'; schedRender(); loadSettings(); deptLoad(); }
   window.scrollTo(0,0);
 }
 $('tabMain').onclick=()=>showTab('main'); $('tabDept').onclick=()=>showTab('dept'); $('tabSet').onclick=()=>showTab('set');
@@ -876,8 +891,8 @@ $('setSave').onclick=async()=>{
   const m=$('setMsg'); m.style.color='';
   try{
     const r=await jfetch('/api/settings',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({doneRange:$('setDone').value.trim(),planRange:$('setPlan').value.trim()})});
-    settings={...DEF_SET,...r.settings}; m.style.color='#1e7a3c'; m.textContent='일정을 저장했습니다. 다음 취합부터 적용됩니다.';
-  }catch(e){ m.style.color='#c0392b'; m.textContent='저장하지 못했습니다: '+e.message; }
+    settings={...DEF_SET,...r.settings}; schedRender(); m.style.color='#1e7a3c'; m.style.fontWeight='700'; m.style.fontSize='15px'; m.textContent='✔ 저장이 완료되었습니다.';
+  }catch(e){ m.style.color='#c0392b'; m.style.fontWeight=''; m.style.fontSize=''; m.textContent='저장하지 못했습니다: '+e.message; }
 };
 $('tplUp').onclick=()=>$('tplFile').click();
 $('tplFile').onchange=async()=>{
