@@ -882,16 +882,20 @@ $('tplFile').onchange=async()=>{
     if(buf[0]===0x50&&buf[1]===0x4b) throw new Error('.hwpx 파일은 템플릿으로 쓸 수 없습니다. .hwp 파일로 저장해서 올려 주세요.');
     const items=await extractHWP(buf);
     const chk=analyzeTemplate(items);
-    if(!chk.a&&!chk.b) throw new Error('「▣ 완료 및 진행업무」·「▣ 계획업무」 아래의 보고 항목(“1. …: …”)을 찾지 못했습니다.');
+    if(!chk.ha&&!chk.hb) throw new Error('「완료 및 진행업무」·「계획업무」 제목 줄을 찾지 못했습니다. 보고서 양식(.hwp)인지 확인해 주세요.');
     const r=await jfetch('/api/template?name='+encodeURIComponent(f.name),{method:'PUT',body:buf});
-    tplMeta=r.meta; tplRender(); m.style.color='#1e7a3c'; m.textContent=`템플릿을 등록했습니다 (완료 및 진행 ${chk.a}항목 · 계획 ${chk.b}항목 양식 확인).`;
+    tplMeta=r.meta; tplRender(); m.style.color='#1e7a3c'; m.textContent=`템플릿을 등록했습니다 (완료 및 진행 ${chk.a}항목 · 계획 ${chk.b}항목 양식 확인).`+((!chk.a||!chk.b)?' 항목이 없는 부분은 제목 줄 서식을 복제해서 채웁니다.':'');
   }catch(e){ m.style.color='#c0392b'; m.textContent='등록하지 못했습니다: '+e.message; }
 };
 $('tplDel').onclick=async()=>{ try{ await jfetch('/api/template',{method:'DELETE'}); tplMeta=null; tplRender(); $('setMsg').textContent='템플릿을 삭제했습니다.'; }catch(e){ $('setMsg').textContent='삭제하지 못했습니다.'; } };
+const HEAD_RE=/^[^가-힣A-Za-z0-9]*(완료\s*및\s*진행\s*업무|계획\s*업무)\s*$/;
+const NUM_RE=/^[◆◈◇★☆\s]*\d+\s*\./;
 function analyzeTemplate(items){
-  let sec=null,a=0,b=0;
-  items.forEach(it=>{ const t=it.text; if(/^▣/.test(t)){sec=t.includes('계획')?'B':'A';return;} if(/^[◆◈◇★☆\s]*\d+\.\s.*[:：]/.test(t)){ if(sec==='A')a++; else if(sec==='B')b++; } });
-  return {a,b};
+  let sec=null,a=0,b=0,ha=0,hb=0;
+  items.forEach(it=>{ const t=(it.text||'').trim(); const h=HEAD_RE.exec(t);
+    if(h){ sec=/계획/.test(t)?'B':'A'; if(sec==='A')ha++; else hb++; return; }
+    if(sec&&NUM_RE.test(t)&&!/^계획\s*업무\s*[:：]|^완료\s*및\s*진행\s*업무\s*[:：]/.test(t)){ if(sec==='A')a++; else b++; } });
+  return {a,b,ha,hb};
 }
 
 /* ===== 부서별 업로드·취합 ===== */
@@ -1048,20 +1052,27 @@ async function fillTemplate(tpl,grp,opts){
       const safe=kids.every(x=>x.tag===67||x.tag===68||x.tag===69||x.tag===70)&&kids.some(x=>x.tag===67);
       const tx=safe?simpleText(kids.find(x=>x.tag===67).body):null;
       paras.push({ph,i,e,span,text:tx});
-      if(tx!=null&&/^▣/.test(tx)) sec=tx.includes('계획')?'B':'A';
-      const last=paras[paras.length-1]; last.sec=sec;
-      last.item=tx!=null&&sec&&/^[◆◈◇★☆\s]*\d+\.\s.*[:：]/.test(tx);
+      const isHead=tx!=null&&HEAD_RE.test(tx.trim());
+      if(isHead) sec=/계획/.test(tx)?'B':'A';
+      const last=paras[paras.length-1]; last.sec=sec; last.head=isHead;
       last.kind=tx!=null?(/^완료\s*및\s*진행\s*업무\s*[:：]/.test(tx)?'sd':(/^계획\s*업무\s*[:：]/.test(tx)?'sp':null)):null;
+      last.item=tx!=null&&!!sec&&!isHead&&!last.kind&&NUM_RE.test(tx);
     }
     const act=new Map(); // ph -> {text?, del?, after?:[texts]}
-    const doSec=(L,q,used)=>{
-      if(used||!L.length) return false;
+    const doSec=(L,q,used,secName)=>{
+      if(used||!q.length&&!L.length) return false;
+      if(!L.length){
+        const hi=paras.findIndex(p=>p.head&&p.sec===secName); if(hi<0) return false;
+        const nx=paras[hi+1];
+        if(nx&&nx.sec===secName&&!nx.head&&!nx.kind&&nx.text!=null&&nx.text.trim()==='') L=[nx];
+        else { act.set(paras[hi].ph,{after:q.slice()}); st.added+=q.length; return true; }
+      }
       L.forEach((p,i)=>{ if(i<q.length){ act.set(p.ph,{text:q[i]}); st.filled++; } else { act.set(p.ph,{del:true}); st.removed++; } });
       if(q.length>L.length){ const last=L[L.length-1], ex=q.slice(L.length); const a=act.get(last.ph)||{}; a.after=ex; act.set(last.ph,a); st.added+=ex.length; }
       return true;
     };
     const LA=paras.filter(p=>p.item&&p.sec==='A'), LB=paras.filter(p=>p.item&&p.sec==='B');
-    if(doSec(LA,qA,usedA)) usedA=true; if(doSec(LB,qB,usedB)) usedB=true;
+    if(doSec(LA,qA,usedA,'A')) usedA=true; if(doSec(LB,qB,usedB,'B')) usedB=true;
     paras.forEach(p=>{ if(p.kind&&(p.kind==='sd'?grp.done:grp.plan)){ const lab=p.text.replace(/\s*[:：].*$/,''); act.set(p.ph,{text:lab+': '+(p.kind==='sd'?grp.done:grp.plan)}); st.sched++; } });
     const byPh=new Map(paras.map(p=>[p.ph,p]));
     const out=[]; ph=-1;
