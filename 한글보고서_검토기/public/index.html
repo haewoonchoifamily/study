@@ -62,6 +62,16 @@
   .dr .nm{font-weight:700;min-width:120px}
   .dr .st{flex:1;font-size:13px;color:#d93025}
   .dr.ok .st{color:#1e7a3c}
+  .te{padding:8px 16px 12px 44px;background:#f7f9fc;border-bottom:1px solid var(--line)}
+  .te .add{display:flex;gap:6px;margin-bottom:6px}
+  .te input[type=text],.sf input[type=text]{flex:1;font:inherit;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+  .te select{font:inherit;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:5px}
+  .te .li{display:flex;gap:8px;align-items:center;font-size:13px;padding:2px 0}
+  .te .li b{color:var(--accent);min-width:56px;font-size:12px}
+  .te .li span{flex:1}
+  .sf{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line)}
+  .sf label{min-width:150px;font-weight:700;font-size:13.5px}
+  #setPanel{display:none;margin-bottom:12px}
   .dp{display:inline-block;font-size:11px;color:#fff;background:#7a8aa3;border-radius:10px;padding:0 7px;margin-right:6px;vertical-align:1px}
   details{margin-top:12px;font-size:13px;color:var(--mute)}
   textarea{width:100%;min-height:120px;margin-top:8px;font:inherit;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:8px}
@@ -79,8 +89,26 @@
     <small>파일은 내 컴퓨터(브라우저) 안에서만 처리되며 어디에도 전송되지 않습니다.</small>
     <input id="file" type="file" accept=".hwp,.hwpx" hidden>
   </div>
-  <div style="text-align:center;margin:10px 0"><button class="btn deptBtn">부서별 업로드</button></div>
+  <div style="text-align:center;margin:10px 0"><button class="btn deptBtn">부서별 업로드</button> <button class="btn setBtn">⚙ 설정</button></div>
   <div id="msg"></div>
+  <div class="panel" id="setPanel">
+    <div class="ph">
+      <div><h2>설정</h2><div class="sub">취합본의 일정 문구와 최종 출력용 한글 양식을 정합니다. 모든 사용자에게 공통으로 적용됩니다.</div></div>
+      <div class="actions"><button class="btn" id="setClose">닫기</button></div>
+    </div>
+    <div class="sf"><label for="setDone">완료 및 진행 업무 일정</label><input type="text" id="setDone" placeholder="예) 11. 16.(월) ~ 29.(일)"></div>
+    <div class="sf"><label for="setPlan">계획업무 일정</label><input type="text" id="setPlan" placeholder="예) 11. 30.(월) ~ 12. 6.(일)"></div>
+    <div class="sf"><span class="stat" style="flex:1">출력 예) 「완료 및 진행 업무: 11. 16.(월) ~ 29.(일)」 「계획업무: 11. 30.(월) ~ 12. 6.(일)」</span><button class="btn primary" id="setSave">일정 저장</button></div>
+    <div class="sf" style="flex-wrap:wrap">
+      <label>최종 출력용 한글 템플릿</label>
+      <span class="stat" id="tplInfo" style="flex:1">등록된 템플릿이 없습니다.</span>
+      <button class="btn" id="tplUp">템플릿 등록·변경</button>
+      <button class="btn" id="tplDel" style="display:none">삭제</button>
+      <input id="tplFile" type="file" accept=".hwp" hidden>
+    </div>
+    <div class="stat" style="padding:4px 16px 10px">템플릿은 이전 주 보고서처럼 「▣ 완료 및 진행업무」·「▣ 계획업무」 아래에 “1. …: …” 항목이 이미 들어 있는 .hwp 파일입니다. 취합본의 항목 수에 맞춰 그 양식 그대로 채워서 저장합니다.</div>
+    <div class="stat" id="setMsg" style="padding:0 16px 10px"></div>
+  </div>
   <div class="panel" id="deptPanel">
     <div class="ph">
       <div><h2>부서별 업로드</h2><div class="sub" id="deptSub"></div></div>
@@ -107,6 +135,7 @@
           <button class="btn" id="clear">체크 모두 해제</button>
           <button class="btn" id="newFile">새 파일 올리기</button>
           <button class="btn deptBtn">부서별 업로드</button>
+          <button class="btn setBtn">⚙ 설정</button>
         </div>
       </div>
       <div class="rows" id="rows"></div>
@@ -124,6 +153,7 @@
           <button id="edit" style="margin-left:8px">✎ 수정</button>
           <button id="newFile2">새 파일 올리기</button>
           <button class="deptBtn">부서별 업로드</button>
+          <button class="setBtn">⚙ 설정</button>
         </div>
       </div>
       <div id="preview"></div>
@@ -598,7 +628,7 @@ async function poll(){
 function setMsg(t,err){const m=$('msg');m.textContent=t||'';m.className=err?'err':'';}
 let origBuf=null, origKey='', pendingOrig=null;
 function loadLines(lines,name){
-  const list=lines.map(x=>typeof x==='string'?{text:x}:x).map(x=>({...x,text:x.text.replace(/\s+$/,'')})).filter(x=>x.text.trim()!=='').map(x=>({text:x.text,sec:x.sec,ph:x.ph,ln:x.ln,nl:x.nl,del:false,star:false,fixed:!/^\d+\.\s.*[:：]/.test(x.text),dept:x.dept}));
+  const list=lines.map(x=>typeof x==='string'?{text:x}:x).map(x=>({...x,text:x.text.replace(/\s+$/,'')})).filter(x=>x.text.trim()!=='').map(x=>({text:x.text,sec:x.sec,ph:x.ph,ln:x.ln,nl:x.nl,del:false,star:false,fixed:(typeof x.fixed==='boolean')?x.fixed:!/^\d+\.\s.*[:：]/.test(x.text),dept:x.dept}));
   if(!list.length){setMsg('추출된 텍스트가 없습니다.',true);return;}
   const orig=pendingOrig; pendingOrig=null;
   if(server){
@@ -756,6 +786,20 @@ function downloadBytes(bytes,name){
 $('exportHwp').onclick=async()=>{
   const msg=$('exportMsg'), btn=$('exportHwp'); msg.style.color=''; msg.textContent='';
   try{
+    if(!items.some(i=>i.ph!=null)){
+      btn.disabled=true; btn.textContent='만드는 중…';
+      let tr; try{ tr=await fetch('/api/template',{cache:'no-store'}); }catch(e){ tr=null; }
+      if(!tr||!tr.ok||(tr.headers.get('content-type')||'').includes('json')) throw new Error('등록된 한글 템플릿이 없습니다. 「⚙ 설정」에서 최종 출력용 템플릿(.hwp)을 먼저 등록해 주세요.');
+      const tpl=new Uint8Array(await tr.arrayBuffer()), grp=finalGroups($('optStar').checked);
+      await loadSettings(); grp.done=settings.doneRange; grp.plan=settings.planRange;
+      const r=await fillTemplate(tpl,grp);
+      const base=(fileName||'보고서').replace(/\.hwp$/i,'');
+      downloadBytes(r.bytes,base+'_최종.hwp');
+      let t=`저장했습니다: ${base}_최종.hwp (템플릿 양식에 항목 ${grp.A.length+grp.B.length}개 채움`+(r.st.sched?', 일정 문구 반영':'')+')';
+      if(r.st.skipped) t+=` · 특수 문단이라 바꾸지 못한 곳 ${r.st.skipped}곳`;
+      if(r.st.noslot) t+=' · 템플릿에 항목 양식(“1. …: …”)이 없어 넣지 못한 항목이 있습니다.';
+      msg.textContent=t; return;
+    }
     if(!items.some(i=>i.ph!=null)) throw new Error('이 문서는 .hwp 파일에서 올린 것이 아니어서(부서별 취합본 포함) 한글 파일로 저장할 수 없습니다. 「최종본 복사」를 이용해 주세요. 「새 파일 올리기」로 .hwp 파일을 올려 주세요.');
     btn.disabled=true; btn.textContent='만드는 중…';
     const orig=await getOrig();
@@ -769,11 +813,64 @@ $('exportHwp').onclick=async()=>{
   }catch(e){ msg.style.color='#c0392b'; msg.textContent='저장하지 못했습니다: '+e.message; }
   finally{ btn.disabled=false; btn.textContent='한글(.hwp)로 저장'; }
 };
+/* ===== 설정 (일정 문구 · 한글 템플릿) ===== */
+const DEF_SET={doneRange:'11. 16.(월) ~ 29.(일)',planRange:'11. 30.(월) ~ 12. 6.(일)'};
+let settings={...DEF_SET}, tplMeta=null;
+async function jfetch(url,opt){
+  const r=await fetch(url,{cache:'no-store',...opt});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  if(!(r.headers.get('content-type')||'').includes('json')) throw new Error('not api');
+  return r.json();
+}
+async function loadSettings(){
+  if(!server) return;
+  try{ const r=await jfetch('/api/settings'); if(r.settings) settings={...DEF_SET,...r.settings}; }catch(e){}
+  try{ const r=await jfetch('/api/template?meta=1'); tplMeta=r.meta; }catch(e){}
+  $('setDone').value=settings.doneRange; $('setPlan').value=settings.planRange; tplRender();
+}
+function tplRender(){
+  $('tplInfo').textContent=tplMeta?`등록됨: ${tplMeta.name} · ${Math.round(tplMeta.size/1024)}KB · ${whenText(tplMeta.at)}`:'등록된 템플릿이 없습니다.';
+  $('tplDel').style.display=tplMeta?'':'none';
+}
+document.querySelectorAll('.setBtn').forEach(b=>b.onclick=()=>{
+  const p=$('setPanel'); p.style.display='block'; $('setMsg').textContent=server?'':'공용 서버에 연결되지 않아 설정을 저장할 수 없습니다.';
+  loadSettings(); p.scrollIntoView({block:'start'});
+});
+$('setClose').onclick=()=>{$('setPanel').style.display='none';};
+$('setSave').onclick=async()=>{
+  const m=$('setMsg'); m.style.color='';
+  try{
+    const r=await jfetch('/api/settings',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({doneRange:$('setDone').value.trim(),planRange:$('setPlan').value.trim()})});
+    settings={...DEF_SET,...r.settings}; m.style.color='#1e7a3c'; m.textContent='일정을 저장했습니다. 다음 취합부터 적용됩니다.';
+  }catch(e){ m.style.color='#c0392b'; m.textContent='저장하지 못했습니다: '+e.message; }
+};
+$('tplUp').onclick=()=>$('tplFile').click();
+$('tplFile').onchange=async()=>{
+  const f=$('tplFile').files[0]; $('tplFile').value=''; if(!f) return; const m=$('setMsg'); m.style.color='';
+  try{
+    const buf=await readFileBuf(f);
+    if(buf[0]===0x50&&buf[1]===0x4b) throw new Error('.hwpx 파일은 템플릿으로 쓸 수 없습니다. .hwp 파일로 저장해서 올려 주세요.');
+    const items=await extractHWP(buf);
+    const chk=analyzeTemplate(items);
+    if(!chk.a&&!chk.b) throw new Error('「▣ 완료 및 진행업무」·「▣ 계획업무」 아래의 보고 항목(“1. …: …”)을 찾지 못했습니다.');
+    const r=await jfetch('/api/template?name='+encodeURIComponent(f.name),{method:'PUT',body:buf});
+    tplMeta=r.meta; tplRender(); m.style.color='#1e7a3c'; m.textContent=`템플릿을 등록했습니다 (완료 및 진행 ${chk.a}항목 · 계획 ${chk.b}항목 양식 확인).`;
+  }catch(e){ m.style.color='#c0392b'; m.textContent='등록하지 못했습니다: '+e.message; }
+};
+$('tplDel').onclick=async()=>{ try{ await jfetch('/api/template',{method:'DELETE'}); tplMeta=null; tplRender(); $('setMsg').textContent='템플릿을 삭제했습니다.'; }catch(e){ $('setMsg').textContent='삭제하지 못했습니다.'; } };
+function analyzeTemplate(items){
+  let sec=null,a=0,b=0;
+  items.forEach(it=>{ const t=it.text; if(/^▣/.test(t)){sec=t.includes('계획')?'B':'A';return;} if(/^[◆◈◇★☆\s]*\d+\.\s.*[:：]/.test(t)){ if(sec==='A')a++; else if(sec==='B')b++; } });
+  return {a,b};
+}
+
 /* ===== 부서별 업로드·취합 ===== */
 const DEPTS=['학생지원팀','장학복지팀','진로취업팀','학생상담센터','보건진료센터','학생성공센터'];
+const SECN={A:'완료 및 진행업무',B:'계획업무'};
 let deptState=new Array(6).fill(null), deptTarget=0, mergeArmed=false;
-async function deptApi(method,n,body){
-  const r=await fetch('/api/dept'+(n?'?n='+n:''),{method,headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined,cache:'no-store'});
+const textCache={}, openEd=new Set();
+async function deptApi(method,n,body,kind){
+  const r=await fetch('/api/dept'+(n?'?n='+n+(kind?'&kind='+kind:''):''),{method,headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined,cache:'no-store'});
   if(!r.ok) throw new Error('HTTP '+r.status);
   if(!(r.headers.get('content-type')||'').includes('json')) throw new Error('not api');
   return r.json();
@@ -781,19 +878,42 @@ async function deptApi(method,n,body){
 function deptRender(){
   const done=deptState.filter(Boolean).length;
   document.querySelectorAll('.deptBtn').forEach(b=>b.textContent=`부서별 업로드 (${done}/6)`);
-  $('deptSub').textContent=`${done}개 부서 업로드 완료 · ${6-done}개 부서 대기 중`;
+  $('deptSub').textContent=`${done}개 부서 입력 완료 · ${6-done}개 부서 대기 중`;
   const box=$('deptRows'); box.textContent='';
   DEPTS.forEach((nm,k)=>{
     const d=deptState[k], r=document.createElement('div'); r.className='dr'+(d?' ok':'');
     const dot=document.createElement('span'); dot.className='dot';
     const n=document.createElement('span'); n.className='nm'; n.textContent=(k+1)+'. '+nm;
-    const st=document.createElement('span'); st.className='st'; st.textContent=d?`✔ 업로드 완료 · ${d.fileName} · ${d.count}줄 · ${whenText(d.at)}`:'아직 업로드되지 않았습니다';
-    const up=document.createElement('button'); up.className='btn'; up.textContent=d?'다시 올리기':'파일 올리기'; up.onclick=()=>{deptTarget=k+1;$('deptFile').click();};
-    r.append(dot,n,st,up);
-    if(d){const rm=document.createElement('button');rm.className='btn';rm.textContent='삭제';rm.onclick=async()=>{try{await deptApi('DELETE',k+1);await deptLoad();}catch(e){$('deptMsg').textContent='삭제하지 못했습니다.';}};r.append(rm);}
+    const st=document.createElement('span'); st.className='st';
+    if(d){ const parts=[]; if(d.count) parts.push(`파일 ${d.fileName} · ${d.count}줄 · ${whenText(d.at)}`); if(d.textCount) parts.push(`직접 입력 ${d.textCount}줄`); st.textContent='✔ 업로드 완료 · '+parts.join(' / '); }
+    else st.textContent='아직 업로드되지 않았습니다';
+    const up=document.createElement('button'); up.className='btn'; up.textContent=(d&&d.count)?'파일 다시 올리기':'파일 올리기'; up.onclick=()=>{deptTarget=k+1;$('deptFile').click();};
+    const ed=document.createElement('button'); ed.className='btn'; ed.textContent=openEd.has(k+1)?'▲ 직접 입력 접기':'✎ 직접 입력'+(d&&d.textCount?` (${d.textCount})`:'');
+    ed.onclick=async()=>{ if(openEd.has(k+1)) openEd.delete(k+1); else { openEd.add(k+1); try{ textCache[k+1]=(await deptApi('GET',k+1,null,'text')).items; }catch(e){ textCache[k+1]=[]; } } deptRender(); };
+    r.append(dot,n,st,up,ed);
+    if(d){const rm=document.createElement('button');rm.className='btn';rm.textContent='전체 삭제';rm.onclick=async()=>{ if(!confirm(DEPTS[k]+'의 업로드 내용을 모두 지울까요?')) return; try{await deptApi('DELETE',k+1);delete textCache[k+1];await deptLoad();}catch(e){$('deptMsg').textContent='삭제하지 못했습니다.';}};r.append(rm);}
     box.append(r);
+    if(openEd.has(k+1)) box.append(deptEditor(k+1));
   });
   $('deptMerge').disabled=!done;
+}
+function deptEditor(k){
+  const box=document.createElement('div'); box.className='te';
+  const add=document.createElement('div'); add.className='add';
+  const sel=document.createElement('select'); sel.innerHTML='<option value="A">완료 및 진행업무</option><option value="B">계획업무</option>';
+  const inp=document.createElement('input'); inp.type='text'; inp.placeholder='한 줄씩 입력 (예: 제33회 학생학술연구논문대회 시상식: 11. 24.(화), 12:00, 의양관 심제당)  — 번호는 자동으로 붙습니다';
+  const btn=document.createElement('button'); btn.className='btn primary'; btn.textContent='추가';
+  const save=async list=>{ try{ await deptApi('PUT',k,{items:list},'text'); textCache[k]=list; await deptLoad(); const el=document.querySelector('.te input[type=text]'); }catch(e){ $('deptMsg').style.color='#c0392b'; $('deptMsg').textContent='저장하지 못했습니다.'; } };
+  const go=()=>{ const t=inp.value.trim(); if(!t) return; save([...(textCache[k]||[]),{s:sel.value,t}]).then(()=>{ const i=document.querySelector(`.te[data-k="${k}"] input[type=text]`); if(i) i.focus(); }); };
+  btn.onclick=go; inp.onkeydown=e=>{ if(e.key==='Enter'&&!e.isComposing){e.preventDefault();go();} };
+  add.append(sel,inp,btn); box.append(add); box.dataset.k=k;
+  (textCache[k]||[]).forEach((x,i)=>{
+    const li=document.createElement('div'); li.className='li';
+    const b=document.createElement('b'); b.textContent=SECN[x.s]; const sp=document.createElement('span'); sp.textContent=x.t;
+    const rm=document.createElement('button'); rm.className='btn'; rm.textContent='✕'; rm.onclick=()=>save((textCache[k]||[]).filter((_,j)=>j!==i));
+    li.append(b,sp,rm); box.append(li);
+  });
+  return box;
 }
 async function deptLoad(){
   if(!server){ document.querySelectorAll('.deptBtn').forEach(b=>b.textContent='부서별 업로드'); return; }
@@ -817,20 +937,25 @@ $('deptFile').onchange=async()=>{
     await deptLoad();
   }catch(e){ msg.style.color='#c0392b'; msg.textContent='업로드하지 못했습니다: '+e.message; }
 };
-function mergeDepts(list){ /* list: [{k, lines}] 부서 순서 */
+function mergeDepts(list,st){ /* list: [{k, lines, text:[{s,t}]}] 부서 순서 */
   const isItem=t=>/^\d+\.\s.*[:：]/.test(t);
   let head=null, tail=null, hA='▣ 완료 및 진행업무', hB='▣ 계획업무'; const A=[], B=[];
-  list.forEach(({k,lines})=>{
+  list.forEach(({k,lines,text})=>{
     let sec=null; const h=[], t=[]; let sawA=false, sawB=false;
-    lines.forEach(x=>{
+    (lines||[]).forEach(x=>{
       if(/^▣/.test(x)){ sec=x.includes('계획')?'B':'A'; if(sec==='A'&&!sawA){sawA=true; if(!head)hA=x;} if(sec==='B'&&!sawB){sawB=true; if(!tail)hB=x;} return; }
       if(isItem(x)){ if(sec==='A') A.push({k,x}); else if(sec==='B') B.push({k,x}); return; }
       (sec?t:h).push(x);
     });
+    (text||[]).forEach(o=>(o.s==='B'?B:A).push({k,x:'0. '+o.t}));
     if(!head&&h.length) head=h; if(!tail&&t.length) tail=t;
   });
-  const num=(arr)=>arr.map(({k,x},i)=>({text:x.replace(/^([◆◈◇★☆\s]*)\d+\./,(_,a)=>a+(i+1)+'.'),dept:k}));
-  return [...(head||[]),hA,...num(A),hB,...num(B),...(tail||[])];
+  const num=(arr)=>arr.map(({k,x},i)=>({text:x.replace(/^([◆◈◇★☆\s]*)\d+\./,(_,a)=>a+(i+1)+'.'),dept:k,fixed:false}));
+  const tl=(tail||[]).slice();
+  const put=(re,label,val)=>{ if(!val) return; const t=label+': '+val, i=tl.findIndex(x=>re.test(x)); if(i>=0) tl[i]=t; else tl.push(t); };
+  put(/^완료\s*및\s*진행\s*업무\s*[:：]/,'완료 및 진행 업무',st.doneRange);
+  put(/^계획\s*업무\s*[:：]/,'계획업무',st.planRange);
+  return [...(head||[]),hA,...num(A),hB,...num(B),...tl];
 }
 $('deptMerge').onclick=async()=>{
   const b=$('deptMerge'), msg=$('deptMsg'); msg.style.color='';
@@ -842,14 +967,105 @@ $('deptMerge').onclick=async()=>{
   }
   mergeArmed=false; b.textContent='취합본으로 검토 시작';
   try{
-    const list=[]; for(let k=1;k<=6;k++){ if(!deptState[k-1]) continue; const r=await deptApi('GET',k); list.push({k,lines:r.lines}); }
-    const lines=mergeDepts(list);
+    await loadSettings();
+    const list=[]; for(let k=1;k<=6;k++){ const d=deptState[k-1]; if(!d) continue;
+      const lines=d.count?(await deptApi('GET',k)).lines:[]; const text=d.textCount?(await deptApi('GET',k,null,'text')).items:[];
+      list.push({k,lines,text}); }
+    const lines=mergeDepts(list,settings);
     pendingOrig=null; $('deptPanel').style.display='none';
-    loadLines(lines.map(t=>typeof t==='string'?t:t),'부서별 취합본');
+    loadLines(lines,'부서별 취합본');
   }catch(e){ msg.style.color='#c0392b'; msg.textContent='취합하지 못했습니다: '+e.message; }
 };
-setInterval(()=>{ if(server&&!document.hidden) deptLoad(); },5000);
-setTimeout(deptLoad,1200);
+setInterval(()=>{ if(server&&!document.hidden&&!$('deptRows').contains(document.activeElement)) deptLoad(); },5000);
+setTimeout(()=>{deptLoad();loadSettings();},1200);
+
+/* ===== 템플릿 채우기 출력 ===== */
+function simpleText(body){
+  const dv=new DataView(body.buffer,body.byteOffset,body.byteLength); let t='';
+  for(let j=0;j+1<body.length;j+=2){ const c=dv.getUint16(j,true); if(c===13&&j+2>=body.length) return t; if(c<32) return null; t+=String.fromCharCode(c); }
+  return t;
+}
+function cloneWithText(span,text){
+  const h=span[0], hb=h.body.slice(), hd=new DataView(hb.buffer);
+  const t=span.find(x=>x.tag===67), cs=span.find(x=>x.tag===68), ls=span.find(x=>x.tag===69);
+  const n=text.length+1;
+  hd.setUint32(0,((hd.getUint32(0,true)&0x80000000)|n)>>>0,true);
+  hd.setUint32(4,0,true); hd.setUint16(12,cs?1:0,true); hd.setUint16(14,0,true); hd.setUint16(16,ls?1:0,true);
+  const out=[{tag:66,lvl:h.lvl,body:hb}];
+  const tb=new Uint8Array(n*2), td=new DataView(tb.buffer);
+  for(let i=0;i<text.length;i++) td.setUint16(i*2,text.charCodeAt(i),true);
+  td.setUint16(text.length*2,13,true);
+  const clvl=span.length>1?span[1].lvl:h.lvl+1;
+  out.push({tag:67,lvl:t?t.lvl:clvl,body:tb});
+  if(cs){ const b=new Uint8Array(8); b.set(cs.body.subarray(4,8),4); out.push({tag:68,lvl:cs.lvl,body:b}); }
+  if(ls){ const b=ls.body.slice(0,36); new DataView(b.buffer,b.byteOffset,b.byteLength).setUint32(0,0,true); out.push({tag:69,lvl:ls.lvl,body:b}); }
+  return out;
+}
+async function fillTemplate(tpl,grp,opts){
+  const {files,tree,rootClsid}=readCFB(tpl);
+  const compressed=checkHeader(files), secs=sectionNames(files);
+  const replaced={}; const st={filled:0,added:0,removed:0,skipped:0,sched:0};
+  let qA=grp.A.slice(), qB=grp.B.slice(), usedA=false, usedB=false;
+  for(let si=0;si<secs.length;si++){
+    let data=files[secs[si]](); if(compressed) data=inflateRawSync(data);
+    const recs=parseRecords(data), before=listCounts(recs);
+    /* 1차: 문단 분석 */
+    const paras=[]; let ph=-1, sec=null;
+    for(let i=0;i<recs.length;i++){
+      const r=recs[i]; if(r.tag!==66) continue; ph++;
+      let e=i+1; while(e<recs.length&&recs[e].lvl>r.lvl) e++;
+      const span=recs.slice(i,e), kids=span.slice(1);
+      const safe=kids.every(x=>x.tag===67||x.tag===68||x.tag===69||x.tag===70)&&kids.some(x=>x.tag===67);
+      const tx=safe?simpleText(kids.find(x=>x.tag===67).body):null;
+      paras.push({ph,i,e,span,text:tx});
+      if(tx!=null&&/^▣/.test(tx)) sec=tx.includes('계획')?'B':'A';
+      const last=paras[paras.length-1]; last.sec=sec;
+      last.item=tx!=null&&sec&&/^[◆◈◇★☆\s]*\d+\.\s.*[:：]/.test(tx);
+      last.kind=tx!=null?(/^완료\s*및\s*진행\s*업무\s*[:：]/.test(tx)?'sd':(/^계획\s*업무\s*[:：]/.test(tx)?'sp':null)):null;
+    }
+    const act=new Map(); // ph -> {text?, del?, after?:[texts]}
+    const doSec=(L,q,used)=>{
+      if(used||!L.length) return false;
+      L.forEach((p,i)=>{ if(i<q.length){ act.set(p.ph,{text:q[i]}); st.filled++; } else { act.set(p.ph,{del:true}); st.removed++; } });
+      if(q.length>L.length){ const last=L[L.length-1], ex=q.slice(L.length); const a=act.get(last.ph)||{}; a.after=ex; act.set(last.ph,a); st.added+=ex.length; }
+      return true;
+    };
+    const LA=paras.filter(p=>p.item&&p.sec==='A'), LB=paras.filter(p=>p.item&&p.sec==='B');
+    if(doSec(LA,qA,usedA)) usedA=true; if(doSec(LB,qB,usedB)) usedB=true;
+    paras.forEach(p=>{ if(p.kind&&(p.kind==='sd'?grp.done:grp.plan)){ const lab=p.text.replace(/\s*[:：].*$/,''); act.set(p.ph,{text:lab+': '+(p.kind==='sd'?grp.done:grp.plan)}); st.sched++; } });
+    const byPh=new Map(paras.map(p=>[p.ph,p]));
+    const out=[]; ph=-1;
+    for(let i=0;i<recs.length;){
+      const r=recs[i];
+      if(r.tag!==66){out.push(r);i++;continue;}
+      ph++; const a=act.get(ph), p=byPh.get(ph);
+      if(!a){out.push(r);i++;continue;}
+      if(!p.span.slice(1).every(x=>x.tag===67||x.tag===68||x.tag===69||x.tag===70)||p.text==null){ st.skipped++; out.push(r); i++; continue; }
+      if(!a.del) out.push(...cloneWithText(p.span,a.text!=null?a.text:p.text));
+      if(a.after) a.after.forEach(tx=>out.push(...cloneWithText(p.span,tx)));
+      i=p.e;
+    }
+    const after=listCounts(out);
+    before.forEach((c,r)=>{
+      const dv=new DataView(r.body.buffer,r.body.byteOffset,r.body.byteLength);
+      if(after.has(r)&&dv.getUint16(0,true)===c&&after.get(r)!==c){ const b=r.body.slice(); new DataView(b.buffer).setUint16(0,after.get(r),true); r.body=b; }
+    });
+    let od=serializeRecords(out); if(compressed) od=deflateStored(od);
+    replaced[secs[si]]=od;
+  }
+  if(files['PrvText']) replaced['PrvText']=utf16le([...grp.A,...grp.B].join('\r\n').slice(0,1024));
+  if(!usedA&&grp.A.length||!usedB&&grp.B.length) st.noslot=true;
+  return {bytes:writeCFB(tree,rootClsid,p=>replaced[p]||files[p]()),st};
+}
+function finalGroups(star){
+  const nums=finalNums(); let sec='A'; const A=[],B=[];
+  items.forEach((it,i)=>{
+    if(it.fixed){ if(/^▣/.test(it.text)) sec=it.text.includes('계획')?'B':'A'; return; }
+    if(it.del) return;
+    (sec==='B'?B:A).push((star?mk(it):'')+shownText(it,nums[i],true));
+  });
+  return {A,B};
+}
 $('pasteGo').onclick=()=>loadLines($('paste').value.split(/\r?\n/),'붙여넣은 텍스트');
 </script>
 </body>

@@ -56,17 +56,79 @@ export class Store {
       }
       return out({ error: 'method' }, 405);
     }
+    if (url.pathname === '/api/settings') {
+      if (m === 'GET') return out({ settings: (await this.state.storage.get('settings')) || null });
+      if (m === 'PUT') {
+        let b = {}; try { b = await req.json(); } catch (e) {}
+        const st = { doneRange: String(b.doneRange ?? '').slice(0, 100), planRange: String(b.planRange ?? '').slice(0, 100) };
+        await this.state.storage.put('settings', st);
+        return out({ settings: st });
+      }
+      return out({ error: 'method' }, 405);
+    }
+    if (url.pathname === '/api/template') {
+      const meta = await this.state.storage.get('tplmeta');
+      if (m === 'GET') {
+        if (url.searchParams.get('meta')) return out({ meta: meta || null });
+        if (!meta) return out({ error: 'none' }, 404);
+        const parts = [];
+        for (let i = 0; i < meta.chunks; i += 100) {
+          const keys = [];
+          for (let j = i; j < Math.min(meta.chunks, i + 100); j++) keys.push('t' + j);
+          const got = await this.state.storage.get(keys);
+          for (const k of keys) parts.push(new Uint8Array(got.get(k)));
+        }
+        const total = parts.reduce((a, p) => a + p.length, 0), all = new Uint8Array(total);
+        let o = 0; for (const p of parts) { all.set(p, o); o += p.length; }
+        return new Response(all, { headers: { 'content-type': 'application/octet-stream', 'cache-control': 'no-store' } });
+      }
+      const clearT = async () => {
+        if (!meta) return;
+        const keys = []; for (let i = 0; i < meta.chunks; i++) keys.push('t' + i);
+        for (let i = 0; i < keys.length; i += 100) await this.state.storage.delete(keys.slice(i, i + 100));
+        await this.state.storage.delete('tplmeta');
+      };
+      if (m === 'PUT') {
+        const buf = await req.arrayBuffer();
+        if (!buf.byteLength || buf.byteLength > MAX_FILE) return out({ error: 'size' }, 413);
+        await clearT();
+        const n = Math.ceil(buf.byteLength / CHUNK);
+        for (let i = 0; i < n; i += 100) {
+          const obj = {};
+          for (let j = i; j < Math.min(n, i + 100); j++) obj['t' + j] = buf.slice(j * CHUNK, (j + 1) * CHUNK);
+          await this.state.storage.put(obj);
+        }
+        const nm = { name: decodeURIComponent(url.searchParams.get('name') || '').slice(0, 200), at: Date.now(), chunks: n, size: buf.byteLength };
+        await this.state.storage.put('tplmeta', nm);
+        return out({ meta: nm });
+      }
+      if (m === 'DELETE') { await clearT(); return out({ meta: null }); }
+      return out({ error: 'method' }, 405);
+    }
     if (url.pathname === '/api/dept') {
       const n = Number(url.searchParams.get('n'));
       if (!n) {
         const depts = [];
         for (let k = 1; k <= 6; k++) {
           const d = await this.state.storage.get('dept' + k);
-          depts.push(d ? { n: k, fileName: d.fileName, at: d.at, count: d.lines.length } : null);
+          const t = (await this.state.storage.get('deptText' + k)) || [];
+          depts.push(d || t.length ? { n: k, fileName: d ? d.fileName : '', at: d ? d.at : 0, count: d ? d.lines.length : 0, textCount: t.length } : null);
         }
         return out({ depts });
       }
       if (!Number.isInteger(n) || n < 1 || n > 6) return out({ error: 'dept' }, 400);
+      if (url.searchParams.get('kind') === 'text') {
+        if (m === 'GET') return out({ items: (await this.state.storage.get('deptText' + n)) || [] });
+        if (m === 'PUT') {
+          let b = {}; try { b = await req.json(); } catch (e) {}
+          const items = (Array.isArray(b.items) ? b.items : []).slice(0, 200)
+            .map(x => ({ s: x && x.s === 'B' ? 'B' : 'A', t: String((x && x.t) ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, 500) }))
+            .filter(x => x.t);
+          if (items.length) await this.state.storage.put('deptText' + n, items); else await this.state.storage.delete('deptText' + n);
+          return out({ ok: true, count: items.length });
+        }
+        return out({ error: 'method' }, 405);
+      }
       if (m === 'GET') {
         const d = await this.state.storage.get('dept' + n);
         return d ? out(d) : out({ error: 'none' }, 404);
@@ -79,7 +141,7 @@ export class Store {
         await this.state.storage.put('dept' + n, d);
         return out({ ok: true, at: d.at });
       }
-      if (m === 'DELETE') { await this.state.storage.delete('dept' + n); return out({ ok: true }); }
+      if (m === 'DELETE') { await this.state.storage.delete(['dept' + n, 'deptText' + n]); return out({ ok: true }); }
       return out({ error: 'method' }, 405);
     }
     if (m === 'GET') {
@@ -135,7 +197,7 @@ export class Store {
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
-    if (url.pathname === '/api/state' || url.pathname === '/api/file' || url.pathname === '/api/dept') {
+    if (url.pathname === '/api/state' || url.pathname === '/api/file' || url.pathname === '/api/dept' || url.pathname === '/api/settings' || url.pathname === '/api/template') {
       return env.STORE.get(env.STORE.idFromName('main')).fetch(req);
     }
     return env.ASSETS.fetch(req);
