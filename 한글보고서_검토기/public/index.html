@@ -784,7 +784,7 @@ function localRestore(){
   }catch(e){}
 }
 (async function init(){
-  try{ const r=await api('GET'); server=true; applyRemote(r.doc); setInterval(poll,4000); return; }catch(e){}
+  try{ const r=await api('GET'); server=true; applyRemote(r.doc); setInterval(poll,4000); $('deptMsg').textContent=''; deptLoad(); loadSettings(); return; }catch(e){}
   server=false; localRestore();
   if(!items.length) setMsg('ⓘ 공용 서버에 연결되지 않아 이 브라우저에만 저장됩니다.');
 })();
@@ -954,7 +954,7 @@ function analyzeTemplate(items){
 const DEPTS=['학생지원팀','장학복지팀','진로취업팀','학생상담센터','보건진료센터','학생성공센터'];
 const SECN={A:'완료 및 진행업무',B:'계획업무'};
 let deptState=new Array(6).fill(null), mergeArmed=false;
-const textCache={}, openEd=new Set();
+const textCache={}, openEd=new Set([1,2,3,4,5,6]);
 async function deptApi(method,n,body,kind){
   const r=await fetch('/api/dept'+(n?'?n='+n+(kind?'&kind='+kind:''):''),{method,headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined,cache:'no-store'});
   if(!r.ok) throw new Error('HTTP '+r.status);
@@ -994,14 +994,18 @@ function deptEditor(k){
   (textCache[k]||[]).forEach((x,i)=>{
     const li=document.createElement('div'); li.className='li';
     const b=document.createElement('b'); b.textContent=SECN[x.s]; const sp=document.createElement('span'); sp.textContent=x.t;
-    const rm=document.createElement('button'); rm.className='btn'; rm.textContent='✕'; rm.onclick=()=>save((textCache[k]||[]).filter((_,j)=>j!==i));
+    const rm=document.createElement('button'); rm.className='btn'; rm.textContent='삭제'; rm.onclick=()=>save((textCache[k]||[]).filter((_,j)=>j!==i));
     li.append(b,sp,rm); box.append(li);
   });
   return box;
 }
 async function deptLoad(){
   if(!server){ document.querySelectorAll('.deptBtn').forEach(b=>b.textContent='부서별 업로드'); return; }
-  try{ const r=await deptApi('GET'); deptState=r.depts; deptRender(); }catch(e){}
+  try{
+    const r=await deptApi('GET'); deptState=r.depts;
+    for(let k=1;k<=6;k++){ const d=deptState[k-1]; if(d&&d.textCount>0){ if(!textCache[k]||textCache[k].length!==d.textCount){ try{ textCache[k]=(await deptApi('GET',k,null,'text')).items; }catch(e){} } } else textCache[k]=[]; }
+    deptRender();
+  }catch(e){}
 }
 function mergeDepts(list,st){ /* list: [{k, lines, text:[{s,t}]}] 부서 순서 */
   const isItem=t=>/^\d+\.\s.*[:：]/.test(t);
@@ -1140,6 +1144,7 @@ function finalGroups(star){
   return {A,B};
 }
 $('pasteGo').onclick=()=>loadLines($('paste').value.split(/\r?\n/),'붙여넣은 텍스트');
+showTab('dept');   /* 첫 화면: 부서별 업로드 */
 </script>
 </body>
 </html>
