@@ -112,11 +112,10 @@
     <div id="summary">
       <div class="chip rp"><span>보고</span><b id="cRep">0</b></div>
       <div class="chip dl"><span>삭제</span><b id="cDel">0</b></div>
-      <div class="chip st"><span>◆ 중점</span><b id="cStar">0</b></div>
     </div>
     <div class="panel">
       <div class="ph">
-        <div><h2>삭제·중점 체크</h2><div class="sub" id="fname"></div></div>
+        <div><h2>삭제 체크</h2><div class="sub" id="fname"></div></div>
         <div class="actions">
           <button class="btn" id="clear">체크 모두 해제</button>
           <button class="btn" id="newFile">새 파일 올리기</button>
@@ -141,9 +140,8 @@
       <div id="preview"></div>
       <div id="exportMsg" class="stat" style="padding:0 18px 10px"></div>
       <div class="ph" style="border-top:1px solid var(--line);border-bottom:none">
-        <span class="stat">삭제 = 빨간 취소선 · 중점 = 앞에 ◆</span>
+        <span class="stat">삭제 = 빨간 취소선</span>
         <div class="actions">
-          <label class="stat" style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="optStar" checked>◆ 넣기</label>
           <button class="btn primary" id="exportHwp">한글(.hwp)로 저장</button>
           <button class="btn primary" id="copyFinal">최종본 복사</button>
           <button class="btn" id="copyMark">표시본 복사</button>
@@ -164,10 +162,10 @@
     </div>
     <div class="sf"><label for="setDone">완료 및 진행 업무 일정</label><input type="hidden" id="setDone"><input type="date" id="setDoneS" class="dt"> ~ <input type="date" id="setDoneE" class="dt"> <b class="pv" id="pvDone"></b></div>
     <div class="sf"><label for="setPlan">계획업무 일정</label><input type="hidden" id="setPlan"><input type="date" id="setPlanS" class="dt"> ~ <input type="date" id="setPlanE" class="dt"> <b class="pv" id="pvPlan"></b></div>
-    <div class="sf"><label>자동 일정</label><button class="btn" id="setAuto" type="button">자동일정</button><span class="stat" style="flex:1">오늘 기준으로 완료 및 진행 = 지난주 월요일 ~ 이번 주 일요일, 계획업무 = 다음 주 월요일 ~ 그다음 주 일요일, 입력 기한 = 이번 주 수요일 11시를 채웁니다.</span></div>
+    <div class="sf"><label>자동 일정</label><button class="btn" id="setAuto" type="button">자동일정</button><span class="stat" style="flex:1">오늘 기준으로 완료 및 진행 = 이번 달 1일 ~ 말일, 계획업무 = 다음 달 1일 ~ 말일을 채웁니다. 입력 기한은 직접 지정합니다.</span></div>
     <div class="sf"><label for="setDead">입력 기한 (월일·시간)</label><input type="datetime-local" id="setDead" class="dt"> <button class="btn" id="setDeadClr" type="button">지우기</button></div>
     <div class="sf"><span class="stat" style="flex:1">출력 예) 「완료 및 진행 업무: 11. 16.(월) ~ 29.(일)」 「계획업무: 11. 30.(월) ~ 12. 6.(일)」</span><button class="btn primary" id="setSave">일정 저장</button></div>
-    <div class="sf"><label>지난 주 데이터</label><button class="btn" id="wipeAll" type="button" style="color:#c0392b;border-color:#e8b4ae">지난 주 데이터 모두 삭제</button><span class="stat" style="flex:1">6개 부서의 입력 내용과 검토 중인 보고서(취합본)를 모두 지웁니다. 일정·입력 기한·한글 템플릿은 그대로 남습니다.</span></div>
+    <div class="sf"><label>지난 달 데이터</label><button class="btn" id="wipeAll" type="button" style="color:#c0392b;border-color:#e8b4ae">지난 달 데이터 모두 삭제</button><span class="stat" style="flex:1">6개 부서의 입력 내용과 검토 중인 보고서(취합본)를 모두 지웁니다. 일정·입력 기한·한글 템플릿은 그대로 남습니다.</span></div>
     <div class="sf" style="flex-wrap:wrap">
       <label>최종 출력용 한글 템플릿</label>
       <span class="stat" id="tplInfo" style="flex:1">등록된 템플릿이 없습니다.</span>
@@ -631,7 +629,7 @@ function applyRemote(doc){
   if(isNew||items.length!==doc.items.length){
     items=doc.items; $('drop').style.display='none'; $('work').style.display='block'; buildRows();
   } else {
-    doc.items.forEach((s,i)=>{items[i].del=s.del;items[i].star=s.star;const a=$('del'+i),b=$('star'+i);if(a){a.checked=s.del;b.checked=s.star;}});
+    doc.items.forEach((s,i)=>{items[i].del=s.del;items[i].star=false;const a=$('del'+i);if(a){a.checked=s.del;}});
   }
   $('fname').textContent=`${fileName} · ${items.length}줄 · 공용 저장 · 마지막 저장 ${whenText(doc.updatedAt)}`;
   const done=doc.stage==='done';
@@ -672,14 +670,14 @@ function buildRows(){
     const mk=(cls,label,key)=>{
       const l=document.createElement('label'); l.className=cls;
       const c=document.createElement('input'); c.type='checkbox'; c.id=key+i; c.checked=!!it[key];
-      c.onchange=()=>{it[key]=c.checked; if(key==='del'&&c.checked){it.star=false;$('star'+i).checked=false;} if(key==='star'&&c.checked){it.del=false;$('del'+i).checked=false;} render(); patch([{i,del:it.del,star:it.star}]);};
+      c.onchange=()=>{it[key]=c.checked; render(); patch([{i,del:it.del,star:it.star}]);};
       l.append(c,label); return l;
     };
     const t=document.createElement('div'); t.className='t';
     if(it.dept){const b=document.createElement('span');b.className='dp';b.textContent=DEPTS[it.dept-1];t.append(b);}
     t.append(document.createTextNode(it.text));
     if(it.fixed){r.classList.add('fixed');const sp=document.createElement('div');sp.style.gridColumn='1 / 3';t.style.gridColumn='3';r.append(sp,t);}
-    else r.append(mk('d','삭제','del'),mk('s','◆중점','star'),t);
+    else r.append(mk('d','삭제','del'),t);
     box.append(r);
   });
 }
@@ -687,7 +685,7 @@ function finalNums(){
   let num=0;
   return items.map(it=>{ if(it.fixed){ if(!(it.ln>0)) num=0; return null; } if(it.del) return null; num++; return num; });
 }
-function mk(it){return it.star&&!/^[◆◈◇★☆]/.test(it.text)?'◆ ':'';}
+function mk(it){return '';}
 function shownText(it,num,final){ return (final&&num!=null)?it.text.replace(/^([◆◈◇★☆\s]*)\d+/,(_,a)=>a+num):it.text; }
 function render(){
   items.forEach((it,i)=>{const r=$('r'+i); if(!r)return; r.classList.toggle('isdel',it.del); r.classList.toggle('isstar',it.star);});
@@ -700,12 +698,12 @@ function render(){
     if(mk(it)){const s=document.createElement('span');s.className='star';s.textContent='◆ ';d.append(s);}
     d.append(document.createTextNode(shownText(it,n,fin))); pv.append(d);
   });
-  const nd=items.filter(i=>i.del).length, ns=items.filter(i=>i.star).length;
+  const nd=items.filter(i=>i.del).length;
   save();
-  { const cs=items.filter(i=>!i.fixed), nD=cs.filter(i=>i.del).length, nS=cs.filter(i=>i.star).length;
-    $('cRep').textContent=cs.length-nD; $('cDel').textContent=nD; $('cStar').textContent=nS; }
-  $('statR').textContent=`삭제 ${items.filter(i=>i.del).length} · 중점 ${items.filter(i=>i.star).length}`;
-  $('stat').textContent=`체크 대상 ${items.filter(i=>!i.fixed).length}줄 · 삭제 ${nd} · 중점 ${ns}`;
+  { const cs=items.filter(i=>!i.fixed), nD=cs.filter(i=>i.del).length;
+    $('cRep').textContent=cs.length-nD; $('cDel').textContent=nD; }
+  $('statR').textContent=`삭제 ${items.filter(i=>i.del).length}`;
+  $('stat').textContent=`체크 대상 ${items.filter(i=>!i.fixed).length}줄 · 삭제 ${nd}`;
   $('tabMark').classList.toggle('on',mode==='mark'); $('tabFinal').classList.toggle('on',mode==='final');
 }
 const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -760,7 +758,7 @@ $('confirm').onclick=()=>{showStage(true);patch([],'done');};
 $('edit').onclick=()=>{showStage(false);patch([],'edit');};
 $('copyFinal').onclick=()=>copy(true);
 $('copyMark').onclick=()=>copy(false);
-$('clear').onclick=()=>{const ops=[];items.forEach((it,i)=>{it.del=it.star=false;if($('del'+i)){$('del'+i).checked=false;$('star'+i).checked=false;ops.push({i,del:false,star:false});}});render();patch(ops);};
+$('clear').onclick=()=>{const ops=[];items.forEach((it,i)=>{it.del=it.star=false;if($('del'+i)){$('del'+i).checked=false;ops.push({i,del:false,star:false});}});render();patch(ops);};
 let armed=null;
 function resetAll(btn){
   if(armed!==btn){
@@ -808,7 +806,7 @@ $('exportHwp').onclick=async()=>{
       btn.disabled=true; btn.textContent='만드는 중…';
       let tr; try{ tr=await fetch('/api/template',{cache:'no-store'}); }catch(e){ tr=null; }
       if(!tr||!tr.ok||(tr.headers.get('content-type')||'').includes('json')) throw new Error('등록된 한글 템플릿이 없습니다. 「⚙ 설정」에서 최종 출력용 템플릿(.hwp)을 먼저 등록해 주세요.');
-      const tpl=new Uint8Array(await tr.arrayBuffer()), grp=finalGroups($('optStar').checked);
+      const tpl=new Uint8Array(await tr.arrayBuffer()), grp=finalGroups(false);
       await loadSettings(); grp.done=settings.doneRange; grp.plan=settings.planRange;
       const r=await fillTemplate(tpl,grp);
       const base=(fileName||'보고서').replace(/\.hwp$/i,'');
@@ -822,7 +820,7 @@ $('exportHwp').onclick=async()=>{
     btn.disabled=true; btn.textContent='만드는 중…';
     const orig=await getOrig();
     if(!orig) throw new Error('원본 한글 파일을 찾을 수 없습니다. 「새 파일 올리기」로 다시 올려 주세요.');
-    const r=await exportHWP(orig,items,{star:$('optStar').checked});
+    const r=await exportHWP(orig,items,{star:false});
     const base=(fileName||'보고서').replace(/\.hwp$/i,'');
     downloadBytes(r.bytes,base+'_최종.hwp');
     let t=`저장했습니다: ${base}_최종.hwp (삭제 ${r.removed}줄 제거, 번호 다시 매김)`;
@@ -832,7 +830,12 @@ $('exportHwp').onclick=async()=>{
   finally{ btn.disabled=false; btn.textContent='한글(.hwp)로 저장'; }
 };
 /* ===== 설정 (일정 문구 · 한글 템플릿) ===== */
-const DEF_SET={doneRange:'11. 16.(월) ~ 29.(일)',planRange:'11. 30.(월) ~ 12. 6.(일)',deadline:''};
+function monthRangeText(off){
+  const W=['일','월','화','수','목','금','토'], t=new Date();
+  const a=new Date(t.getFullYear(),t.getMonth()+off,1), b=new Date(t.getFullYear(),t.getMonth()+off+1,0);
+  return (a.getMonth()+1)+'. '+a.getDate()+'.('+W[a.getDay()]+') ~ '+b.getDate()+'.('+W[b.getDay()]+')';
+}
+const DEF_SET={doneRange:monthRangeText(0),planRange:monthRangeText(1),deadline:''};
 let settings={...DEF_SET}, tplMeta=null;
 async function jfetch(url,opt){
   const r=await fetch(url,{cache:'no-store',...opt});
@@ -928,21 +931,20 @@ $('wipeAll').onclick=async()=>{
     wipeArmed=true; const old=b.textContent; b.textContent='모든 사용자의 부서 입력과 취합본이 지워집니다. 한 번 더 누르세요';
     setTimeout(()=>{ if(wipeArmed){wipeArmed=false;b.textContent=old;} },6000); return;
   }
-  wipeArmed=false; b.textContent='지난 주 데이터 모두 삭제'; m.style.fontWeight=''; m.style.fontSize='';
+  wipeArmed=false; b.textContent='지난 달 데이터 모두 삭제'; m.style.fontWeight=''; m.style.fontSize='';
   try{
     for(let k=1;k<=6;k++) await deptApi('DELETE',k);
     await api('DELETE');
     for(const k in textCache) delete textCache[k]; editSt=null; deptState=new Array(6).fill(null);
     showEmpty(); await deptLoad();
-    m.style.color='#1e7a3c'; m.style.fontWeight='700'; m.style.fontSize='15px'; m.textContent='✔ 지난 주 데이터를 모두 삭제했습니다.';
+    m.style.color='#1e7a3c'; m.style.fontWeight='700'; m.style.fontSize='15px'; m.textContent='✔ 지난 달 데이터를 모두 삭제했습니다.';
   }catch(e){ m.style.color='#c0392b'; m.textContent='삭제하지 못했습니다: '+e.message; }
 };
 $('setAuto').onclick=()=>{
   const t=new Date(); t.setHours(0,0,0,0);
-  const mon=new Date(t); mon.setDate(t.getDate()-((t.getDay()+6)%7));      // 이번 주 월요일
-  const at=n=>{const d=new Date(mon); d.setDate(mon.getDate()+n); return ymd(d);};
-  $('setDoneS').value=at(-7); $('setDoneE').value=at(6); $('setPlanS').value=at(7); $('setPlanE').value=at(13);
-  $('setDead').value=at(2)+'T11:00';   // 입력 기한: 이번 주 수요일 11시
+  const y=t.getFullYear(), mo=t.getMonth();
+  $('setDoneS').value=ymd(new Date(y,mo,1));   $('setDoneE').value=ymd(new Date(y,mo+1,0));    // 완료 및 진행업무: 이번 달 1일 ~ 말일
+  $('setPlanS').value=ymd(new Date(y,mo+1,1)); $('setPlanE').value=ymd(new Date(y,mo+2,0));    // 계획업무: 다음 달 1일 ~ 말일
   rangeSync('Done'); rangeSync('Plan');
   const m=$('setMsg'); m.style.color='#1e7a3c'; m.style.fontWeight=''; m.style.fontSize=''; m.textContent='자동 일정을 채웠습니다. 확인 후 「일정 저장」을 눌러 주세요.';
 };
