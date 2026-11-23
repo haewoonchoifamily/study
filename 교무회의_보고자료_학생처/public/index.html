@@ -173,7 +173,7 @@
       <button class="btn" id="tplDel" style="display:none">삭제</button>
       <input id="tplFile" type="file" accept=".hwp" hidden>
     </div>
-    <div class="stat" style="padding:4px 16px 10px">템플릿은 이전 주 보고서처럼 「▣ 완료 및 진행업무」·「▣ 계획업무」 아래에 “1. …: …” 항목이 이미 들어 있는 .hwp 파일입니다. 취합본의 항목 수에 맞춰 그 양식 그대로 채워서 저장합니다.</div>
+    <div class="stat" style="padding:4px 16px 10px">템플릿은 이전 주 보고서처럼 「▣ 주요 완료 및 진행업무」·「▣ 주요 계획업무」 아래에 “1. …: …” 항목이 이미 들어 있는 .hwp 파일입니다. 취합본의 항목 수에 맞춰 그 양식 그대로 채워서 저장합니다.</div>
     <div class="stat" id="setMsg" style="padding:0 16px 10px"></div>
   </div>
   <div class="panel" id="deptPanel">
@@ -957,13 +957,13 @@ $('tplFile').onchange=async()=>{
     if(buf[0]===0x50&&buf[1]===0x4b) throw new Error('.hwpx 파일은 템플릿으로 쓸 수 없습니다. .hwp 파일로 저장해서 올려 주세요.');
     const items=await extractHWP(buf);
     const chk=analyzeTemplate(items);
-    if(!chk.ha&&!chk.hb) throw new Error('「완료 및 진행업무」·「계획업무」 제목 줄을 찾지 못했습니다. 보고서 양식(.hwp)인지 확인해 주세요.');
+    if(!chk.ha&&!chk.hb) throw new Error('「주요 완료 및 진행업무」·「주요 계획업무」 제목 줄을 찾지 못했습니다. 보고서 양식(.hwp)인지 확인해 주세요.');
     const r=await jfetch('/api/template?name='+encodeURIComponent(f.name),{method:'PUT',body:buf});
     tplMeta=r.meta; tplRender(); m.style.color='#1e7a3c'; m.textContent=`템플릿을 등록했습니다 (완료 및 진행 ${chk.a}항목 · 계획 ${chk.b}항목 양식 확인).`+((!chk.a||!chk.b)?' 항목이 없는 부분은 제목 줄 서식을 복제해서 채웁니다.':'');
   }catch(e){ m.style.color='#c0392b'; m.textContent='등록하지 못했습니다: '+e.message; }
 };
 $('tplDel').onclick=async()=>{ try{ await jfetch('/api/template',{method:'DELETE'}); tplMeta=null; tplRender(); $('setMsg').textContent='템플릿을 삭제했습니다.'; }catch(e){ $('setMsg').textContent='삭제하지 못했습니다.'; } };
-const HEAD_RE=/^[^가-힣A-Za-z0-9]*(완료\s*및\s*진행\s*업무|계획\s*업무)\s*$/;
+const HEAD_RE=/^[^가-힣A-Za-z0-9]*(?:주요\s*)?(완료\s*및\s*진행\s*업무|계획\s*업무)\s*$/;
 const NUM_RE=/^[◆◈◇★☆\s]*\d+\s*\./;
 function analyzeTemplate(items){
   let sec=null,a=0,b=0,ha=0,hb=0;
@@ -975,7 +975,7 @@ function analyzeTemplate(items){
 
 /* ===== 부서별 업로드·취합 ===== */
 const DEPTS=['학생지원팀','장학복지팀','진로취업팀','학생상담센터','보건진료센터','학생성공센터'];
-const SECN={A:'완료 및 진행업무',B:'계획업무'};
+const SECN={A:'주요 완료 및 진행업무',B:'주요 계획업무'};
 let deptState=new Array(6).fill(null), mergeArmed=false;
 let editSt=null;
 const textCache={}, openEd=new Set([1,2,3,4,5,6]);
@@ -1008,7 +1008,7 @@ function deptRender(){
 function deptEditor(k){
   const box=document.createElement('div'); box.className='te';
   const add=document.createElement('div'); add.className='add';
-  const sel=document.createElement('select'); sel.innerHTML='<option value="A">완료 및 진행업무</option><option value="B">계획업무</option>';
+  const sel=document.createElement('select'); sel.innerHTML='<option value="A">주요 완료 및 진행업무</option><option value="B">주요 계획업무</option>';
   const inp=document.createElement('input'); inp.type='text'; inp.placeholder='한 줄씩 입력 후 Enter (예: 제33회 학생학술연구논문대회 시상식: 11. 24.(화), 12:00, 의양관 심제당)  — 번호는 자동으로 붙습니다';
   const btn=document.createElement('button'); btn.className='btn primary'; btn.textContent='추가';
   const save=async list=>{ try{ await deptApi('PUT',k,{items:list},'text'); textCache[k]=list; await deptLoad(); const el=document.querySelector('.te input[type=text]'); }catch(e){ $('deptMsg').style.color='#c0392b'; $('deptMsg').textContent='저장하지 못했습니다.'; } };
@@ -1018,7 +1018,7 @@ function deptEditor(k){
   (textCache[k]||[]).forEach((x,i)=>{
     const li=document.createElement('div'); li.className='li';
     if(editSt&&editSt.k===k&&editSt.i===i){
-      const sl=document.createElement('select'); sl.innerHTML='<option value="A">완료 및 진행업무</option><option value="B">계획업무</option>'; sl.value=x.s;
+      const sl=document.createElement('select'); sl.innerHTML='<option value="A">주요 완료 및 진행업무</option><option value="B">주요 계획업무</option>'; sl.value=x.s;
       const ip=document.createElement('input'); ip.type='text'; ip.value=x.t; ip.style.flex='1';
       const ok=document.createElement('button'); ok.className='btn primary'; ok.textContent='저장';
       const no=document.createElement('button'); no.className='btn'; no.textContent='취소';
@@ -1046,7 +1046,7 @@ async function deptLoad(){
 }
 function mergeDepts(list,st){ /* list: [{k, lines, text:[{s,t}]}] 부서 순서 */
   const isItem=t=>/^\d+\.\s.*[:：]/.test(t);
-  let head=null, tail=null, hA='▣ 완료 및 진행업무', hB='▣ 계획업무'; const A=[], B=[];
+  let head=null, tail=null, hA='▣ 주요 완료 및 진행업무', hB='▣ 주요 계획업무'; const A=[], B=[];
   list.forEach(({k,lines,text})=>{
     let sec=null; const h=[], t=[]; let sawA=false, sawB=false;
     (lines||[]).forEach(x=>{
