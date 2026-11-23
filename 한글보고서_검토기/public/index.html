@@ -879,6 +879,10 @@ function fmtDeadline(v){
   const d=new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5]); const h=d.getHours();
   return {d,text:`${d.getMonth()+1}. ${d.getDate()}.(${DOW[d.getDay()]}) ${h<12?'오전':'오후'} ${h%12===0?12:h%12}:${p2(d.getMinutes())}`};
 }
+function fmtAt(ts){
+  if(!ts) return ''; const d=new Date(ts), h=d.getHours();
+  return `${d.getMonth()+1}. ${d.getDate()}.(${DOW[d.getDay()]}) ${h<12?'오전':'오후'} ${h%12===0?12:h%12}:${p2(d.getMinutes())}`;
+}
 function leftText(ms){
   const mn=Math.floor(ms/60000), d=Math.floor(mn/1440), h=Math.floor(mn%1440/60), m=mn%60;
   return '남은 시간 '+(d?d+'일 ':'')+(d||h?h+'시간 ':'')+m+'분';
@@ -971,7 +975,7 @@ function deptRender(){
     const dot=document.createElement('span'); dot.className='dot';
     const n=document.createElement('span'); n.className='nm'; n.textContent=(k+1)+'. '+nm;
     const st=document.createElement('span'); st.className='st';
-    st.textContent=d?`✔ 업로드 완료 · ${d.textCount}줄 입력됨`:'아직 업로드되지 않았습니다';
+    st.textContent=d?`✔ 업로드 완료 · ${d.textCount}줄 입력됨`+(d.textAt?` · 최종 입력 ${fmtAt(d.textAt)}`:''):'아직 업로드되지 않았습니다';
     const ed=document.createElement('button'); ed.className='btn'; ed.textContent=openEd.has(k+1)?'▲ 입력창 접기':'✎ 내용 입력'+(d?` (${d.textCount})`:'');
     ed.onclick=async()=>{ if(openEd.has(k+1)) openEd.delete(k+1); else { openEd.add(k+1); try{ textCache[k+1]=(await deptApi('GET',k+1,null,'text')).items; }catch(e){ textCache[k+1]=[]; } } deptRender(); };
     r.append(dot,n,st,ed);

@@ -112,7 +112,8 @@ export class Store {
         for (let k = 1; k <= 6; k++) {
           const d = await this.state.storage.get('dept' + k);
           const t = (await this.state.storage.get('deptText' + k)) || [];
-          depts.push(d || t.length ? { n: k, fileName: d ? d.fileName : '', at: d ? d.at : 0, count: d ? d.lines.length : 0, textCount: t.length } : null);
+          const ta = (await this.state.storage.get('deptTextAt' + k)) || 0;
+          depts.push(d || t.length ? { n: k, fileName: d ? d.fileName : '', at: d ? d.at : 0, count: d ? d.lines.length : 0, textCount: t.length, textAt: ta } : null);
         }
         return out({ depts });
       }
@@ -124,7 +125,7 @@ export class Store {
           const items = (Array.isArray(b.items) ? b.items : []).slice(0, 200)
             .map(x => ({ s: x && x.s === 'B' ? 'B' : 'A', t: String((x && x.t) ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, 500) }))
             .filter(x => x.t);
-          if (items.length) await this.state.storage.put('deptText' + n, items); else await this.state.storage.delete('deptText' + n);
+          if (items.length) { await this.state.storage.put('deptText' + n, items); await this.state.storage.put('deptTextAt' + n, Date.now()); } else await this.state.storage.delete(['deptText' + n, 'deptTextAt' + n]);
           return out({ ok: true, count: items.length });
         }
         return out({ error: 'method' }, 405);
@@ -141,7 +142,7 @@ export class Store {
         await this.state.storage.put('dept' + n, d);
         return out({ ok: true, at: d.at });
       }
-      if (m === 'DELETE') { await this.state.storage.delete(['dept' + n, 'deptText' + n]); return out({ ok: true }); }
+      if (m === 'DELETE') { await this.state.storage.delete(['dept' + n, 'deptText' + n, 'deptTextAt' + n]); return out({ ok: true }); }
       return out({ error: 'method' }, 405);
     }
     if (m === 'GET') {
