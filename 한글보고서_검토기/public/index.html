@@ -72,6 +72,8 @@
   .sf{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line)}
   .sf label{min-width:150px;font-weight:700;font-size:13.5px}
   #setPanel{display:none;margin-bottom:12px}
+  .sf .dt{font:inherit;font-size:14px;border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+  .sf .pv{color:var(--accent);margin-left:6px;font-size:14px}
   .dp{display:inline-block;font-size:11px;color:#fff;background:#7a8aa3;border-radius:10px;padding:0 7px;margin-right:6px;vertical-align:1px}
   details{margin-top:12px;font-size:13px;color:var(--mute)}
   textarea{width:100%;min-height:120px;margin-top:8px;font:inherit;font-size:13px;border:1px solid var(--line);border-radius:8px;padding:8px}
@@ -96,8 +98,8 @@
       <div><h2>설정</h2><div class="sub">취합본의 일정 문구와 최종 출력용 한글 양식을 정합니다. 모든 사용자에게 공통으로 적용됩니다.</div></div>
       <div class="actions"><button class="btn" id="setClose">닫기</button></div>
     </div>
-    <div class="sf"><label for="setDone">완료 및 진행 업무 일정</label><input type="text" id="setDone" placeholder="예) 11. 16.(월) ~ 29.(일)"></div>
-    <div class="sf"><label for="setPlan">계획업무 일정</label><input type="text" id="setPlan" placeholder="예) 11. 30.(월) ~ 12. 6.(일)"></div>
+    <div class="sf"><label for="setDone">완료 및 진행 업무 일정</label><input type="hidden" id="setDone"><input type="date" id="setDoneS" class="dt"> ~ <input type="date" id="setDoneE" class="dt"> <b class="pv" id="pvDone"></b></div>
+    <div class="sf"><label for="setPlan">계획업무 일정</label><input type="hidden" id="setPlan"><input type="date" id="setPlanS" class="dt"> ~ <input type="date" id="setPlanE" class="dt"> <b class="pv" id="pvPlan"></b></div>
     <div class="sf"><span class="stat" style="flex:1">출력 예) 「완료 및 진행 업무: 11. 16.(월) ~ 29.(일)」 「계획업무: 11. 30.(월) ~ 12. 6.(일)」</span><button class="btn primary" id="setSave">일정 저장</button></div>
     <div class="sf" style="flex-wrap:wrap">
       <label>최종 출력용 한글 템플릿</label>
@@ -826,15 +828,43 @@ async function loadSettings(){
   if(!server) return;
   try{ const r=await jfetch('/api/settings'); if(r.settings) settings={...DEF_SET,...r.settings}; }catch(e){}
   try{ const r=await jfetch('/api/template?meta=1'); tplMeta=r.meta; }catch(e){}
-  $('setDone').value=settings.doneRange; $('setPlan').value=settings.planRange; tplRender();
+  rangeInit('Done',settings.doneRange); rangeInit('Plan',settings.planRange); tplRender();
 }
+const DOW=['일','월','화','수','목','금','토'];
+const p2=n=>String(n).padStart(2,'0');
+function ymd(d){return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());}
+function fmtRange(sv,ev){
+  if(!sv||!ev) return sv?'':'';
+  const a=sv.split('-').map(Number), b=ev.split('-').map(Number);
+  const da=new Date(a[0],a[1]-1,a[2]), db=new Date(b[0],b[1]-1,b[2]);
+  const f=(d,m)=>(m?(d.getMonth()+1)+'. ':'')+d.getDate()+'.('+DOW[d.getDay()]+')';
+  const sameM=da.getFullYear()===db.getFullYear()&&da.getMonth()===db.getMonth();
+  return f(da,true)+' ~ '+f(db,!sameM);
+}
+function parseRange(t){
+  const m=/(\d+)\.\s*(\d+)\.\s*(?:\([^)]*\))?\s*~\s*(?:(\d+)\.\s*)?(\d+)\./.exec(t||''); if(!m) return null;
+  const y=new Date().getFullYear(), sm=+m[1], sd=+m[2], em=m[3]?+m[3]:sm, ed=+m[4];
+  const s=new Date(y,sm-1,sd); let e=new Date(y,em-1,ed); if(e<s) e=new Date(y+1,em-1,ed);
+  return [ymd(s),ymd(e)];
+}
+function rangeSync(k){
+  const sv=$('set'+k+'S').value, ev=$('set'+k+'E').value;
+  if(sv&&ev&&ev<sv){ $('set'+k+'E').value=sv; }
+  const t=fmtRange($('set'+k+'S').value,$('set'+k+'E').value);
+  $('set'+k).value=t; $('pv'+k).textContent=t?'→ '+t:'';
+}
+function rangeInit(k,text){
+  const r=parseRange(text); $('set'+k+'S').value=r?r[0]:''; $('set'+k+'E').value=r?r[1]:'';
+  if(r) rangeSync(k); else { $('set'+k).value=text||''; $('pv'+k).textContent=text?'→ '+text:''; }
+}
+['Done','Plan'].forEach(k=>['S','E'].forEach(x=>$('set'+k+x).onchange=()=>rangeSync(k)));
 function tplRender(){
   $('tplInfo').textContent=tplMeta?`등록됨: ${tplMeta.name} · ${Math.round(tplMeta.size/1024)}KB · ${whenText(tplMeta.at)}`:'등록된 템플릿이 없습니다.';
   $('tplDel').style.display=tplMeta?'':'none';
 }
 document.querySelectorAll('.setBtn').forEach(b=>b.onclick=()=>{
   const p=$('setPanel'); p.style.display='block'; $('setMsg').textContent=server?'':'공용 서버에 연결되지 않아 설정을 저장할 수 없습니다.';
-  loadSettings(); p.scrollIntoView({block:'start'});
+  loadSettings().then(()=>{ if(!server){rangeInit('Done',settings.doneRange);rangeInit('Plan',settings.planRange);} }); p.scrollIntoView({block:'start'});
 });
 $('setClose').onclick=()=>{$('setPanel').style.display='none';};
 $('setSave').onclick=async()=>{
