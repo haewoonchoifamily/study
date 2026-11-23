@@ -165,7 +165,7 @@
     </div>
     <div class="sf"><label for="setDone">완료 및 진행 업무 일정</label><input type="hidden" id="setDone"><input type="date" id="setDoneS" class="dt"> ~ <input type="date" id="setDoneE" class="dt"> <b class="pv" id="pvDone"></b></div>
     <div class="sf"><label for="setPlan">계획업무 일정</label><input type="hidden" id="setPlan"><input type="date" id="setPlanS" class="dt"> ~ <input type="date" id="setPlanE" class="dt"> <b class="pv" id="pvPlan"></b></div>
-    <div class="sf"><label>자동 일정</label><button class="btn" id="setAuto" type="button">자동일정</button><span class="stat" style="flex:1">오늘 기준으로 완료 및 진행 = 지난주 월요일 ~ 이번 주 일요일, 계획업무 = 다음 주 월요일 ~ 그다음 주 일요일을 채웁니다.</span></div>
+    <div class="sf"><label>자동 일정</label><button class="btn" id="setAuto" type="button">자동일정</button><span class="stat" style="flex:1">오늘 기준으로 완료 및 진행 = 지난주 월요일 ~ 이번 주 일요일, 계획업무 = 다음 주 월요일 ~ 그다음 주 일요일, 입력 기한 = 이번 주 수요일 11시를 채웁니다.</span></div>
     <div class="sf"><label for="setDead">입력 기한 (월일·시간)</label><input type="datetime-local" id="setDead" class="dt"> <button class="btn" id="setDeadClr" type="button">지우기</button></div>
     <div class="sf"><span class="stat" style="flex:1">출력 예) 「완료 및 진행 업무: 11. 16.(월) ~ 29.(일)」 「계획업무: 11. 30.(월) ~ 12. 6.(일)」</span><button class="btn primary" id="setSave">일정 저장</button></div>
     <div class="sf" style="flex-wrap:wrap">
@@ -921,6 +921,7 @@ $('setAuto').onclick=()=>{
   const mon=new Date(t); mon.setDate(t.getDate()-((t.getDay()+6)%7));      // 이번 주 월요일
   const at=n=>{const d=new Date(mon); d.setDate(mon.getDate()+n); return ymd(d);};
   $('setDoneS').value=at(-7); $('setDoneE').value=at(6); $('setPlanS').value=at(7); $('setPlanE').value=at(13);
+  $('setDead').value=at(2)+'T11:00';   // 입력 기한: 이번 주 수요일 11시
   rangeSync('Done'); rangeSync('Plan');
   const m=$('setMsg'); m.style.color='#1e7a3c'; m.style.fontWeight=''; m.style.fontSize=''; m.textContent='자동 일정을 채웠습니다. 확인 후 「일정 저장」을 눌러 주세요.';
 };
