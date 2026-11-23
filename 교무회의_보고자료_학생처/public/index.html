@@ -507,19 +507,24 @@ function writeCFB(tree,rootClsid,getBytes){
   const nodes=[{root:true,name:'Root Entry',path:'',type:5}].concat(tree.map(n=>({...n})));
   nodes.forEach((n,i)=>n.idx=i);
   const cmp=(a,b)=>a.name.length-b.name.length||(a.name.toUpperCase()<b.name.toUpperCase()?-1:a.name.toUpperCase()>b.name.toUpperCase()?1:0);
-  const build=list=>{
+  const build=(list,dep)=>{
     if(!list.length) return FREE;
-    list.sort(cmp); const mid=list.length>>1, n=list[mid];
-    n.left=build(list.slice(0,mid)); n.right=build(list.slice(mid+1)); return n.idx;
+    list.sort(cmp); const mid=list.length>>1, n=list[mid]; n.dep=dep;
+    n.left=build(list.slice(0,mid),dep+1); n.right=build(list.slice(mid+1),dep+1); return n.idx;
   };
-  nodes.forEach(n=>{ if(n.root||n.type===1) n.child=build(nodes.filter(c=>!c.root&&c.parent===n.path)); });
+  nodes.forEach(n=>{ if(n.root||n.type===1){
+    const kids=nodes.filter(c=>!c.root&&c.parent===n.path); n.child=build(kids,0);
+    /* 적흑 트리 규칙: 균형 이진 트리에서 마지막 층이 덜 찬 경우 그 층만 빨강(0), 나머지는 검정(1) */
+    const h=kids.length?Math.floor(Math.log2(kids.length)):0, perfect=kids.length===(2**(h+1))-1;
+    kids.forEach(k=>{ k.color=(!perfect&&k.dep===h)?0:1; });
+  } });
   const dOff=SS+dirStart*SS;
   for(let i=0;i<dirSecs*4;i++){ const o=dOff+i*128; dv.setUint32(o+68,FREE,true); dv.setUint32(o+72,FREE,true); dv.setUint32(o+76,FREE,true); }
   nodes.forEach((n,i)=>{
     const o=dOff+i*128;
     for(let k=0;k<n.name.length;k++) dv.setUint16(o+k*2,n.name.charCodeAt(k),true);
     dv.setUint16(o+64,(n.name.length+1)*2,true);
-    buf[o+66]=n.root?5:n.type; buf[o+67]=1;
+    buf[o+66]=n.root?5:n.type; buf[o+67]=(n.color===0)?0:1;
     dv.setUint32(o+68,n.left==null?FREE:n.left,true); dv.setUint32(o+72,n.right==null?FREE:n.right,true); dv.setUint32(o+76,n.child==null?FREE:n.child,true);
     if(n.root){ buf.set(rootClsid,o+80); dv.setUint32(o+116,miniStart,true); dv.setUint32(o+120,miniLen,true); }
     else if(n.type===2){ const s=streams.find(x=>x.n.path===n.path); dv.setUint32(o+116,s.start,true); dv.setUint32(o+120,s.data.length,true); }
@@ -1092,11 +1097,13 @@ function simpleText(body){
   for(let j=0;j+1<body.length;j+=2){ const c=dv.getUint16(j,true); if(c===13&&j+2>=body.length) return t; if(c<32) return null; t+=String.fromCharCode(c); }
   return t;
 }
-function cloneWithText(span,text){
+function cloneWithText(span,text,last,first){
+  /* last: 이 문단이 목록(셀·본문)의 마지막 문단인지 → nChars 최상위 비트(0x80000000)를 그에 맞게 설정, first가 아니면 문단 인스턴스 ID를 0으로 */
   const h=span[0], hb=h.body.slice(), hd=new DataView(hb.buffer);
   const t=span.find(x=>x.tag===67), cs=span.find(x=>x.tag===68), ls=span.find(x=>x.tag===69);
   const n=text.length+1;
-  hd.setUint32(0,((hd.getUint32(0,true)&0x80000000)|n)>>>0,true);
+  hd.setUint32(0,(((last?0x80000000:0))|n)>>>0,true);
+  if(first===false&&hb.length>=22) hd.setUint32(18,0,true);
   hd.setUint32(4,0,true); hd.setUint16(12,cs?1:0,true); hd.setUint16(14,0,true); hd.setUint16(16,ls?1:0,true);
   const out=[{tag:66,lvl:h.lvl,body:hb}];
   const tb=new Uint8Array(n*2), td=new DataView(tb.buffer);
@@ -1155,8 +1162,12 @@ async function fillTemplate(tpl,grp,opts){
       ph++; const a=act.get(ph), p=byPh.get(ph);
       if(!a){out.push(r);i++;continue;}
       if(!p.span.slice(1).every(x=>x.tag===67||x.tag===68||x.tag===69||x.tag===70)||p.text==null){ st.skipped++; out.push(r); i++; continue; }
-      if(!a.del) out.push(...cloneWithText(p.span,a.text!=null?a.text:p.text));
-      if(a.after) a.after.forEach(tx=>out.push(...cloneWithText(p.span,tx)));
+      const wasLast=!!(new DataView(r.body.buffer,r.body.byteOffset,r.body.byteLength).getUint32(0,true)&0x80000000);
+      const texts=[]; if(!a.del) texts.push(a.text!=null?a.text:p.text); if(a.after) texts.push(...a.after);
+      texts.forEach((tx,k)=>out.push(...cloneWithText(p.span,tx,wasLast&&k===texts.length-1,k===0)));
+      if(!texts.length&&wasLast){ /* 목록의 마지막 문단을 지웠으면 바로 앞 문단이 마지막이 된다 */
+        for(let q=out.length-1;q>=0;q--){ if(out[q].tag===66&&out[q].lvl===r.lvl){ const b=out[q].body.slice(); new DataView(b.buffer).setUint32(0,(new DataView(b.buffer).getUint32(0,true)|0x80000000)>>>0,true); out[q]={...out[q],body:b}; break; } if(out[q].lvl<r.lvl) break; }
+      }
       i=p.e;
     }
     const after=listCounts(out);
