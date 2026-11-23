@@ -110,7 +110,6 @@
   <div id="msg"></div>
   <section id="work">
     <div id="summary">
-      <div class="chip rp"><span>보고</span><b id="cRep">0</b></div>
       <div class="chip dl"><span>삭제</span><b id="cDel">0</b></div>
     </div>
     <div class="panel">
@@ -701,7 +700,7 @@ function render(){
   const nd=items.filter(i=>i.del).length;
   save();
   { const cs=items.filter(i=>!i.fixed), nD=cs.filter(i=>i.del).length;
-    $('cRep').textContent=cs.length-nD; $('cDel').textContent=nD; }
+     $('cDel').textContent=nD; }
   $('statR').textContent=`삭제 ${items.filter(i=>i.del).length}`;
   $('stat').textContent=`체크 대상 ${items.filter(i=>!i.fixed).length}줄 · 삭제 ${nd}`;
   $('tabMark').classList.toggle('on',mode==='mark'); $('tabFinal').classList.toggle('on',mode==='final');
