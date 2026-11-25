@@ -175,6 +175,13 @@ export class Store {
       if (!this.doc) return out({ doc: null });
       if (body.docId !== this.doc.docId) return out({ doc: this.doc, conflict: true });
       for (const op of Array.isArray(body.ops) ? body.ops : []) {
+        if (Array.isArray(op.move)) {
+          const a = this.doc.items[op.move[0]], b = this.doc.items[op.move[1]];
+          if (a && b && !a.fixed && !b.fixed && a !== b) {
+            for (const k of ['text', 'del', 'star', 'dept']) { const t = a[k]; a[k] = b[k]; b[k] = t; }
+          }
+          continue;
+        }
         const it = this.doc.items[op.i];
         if (!it || it.fixed) continue;
         it.del = !!op.del;
